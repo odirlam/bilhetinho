@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1B1830">
+<title>Bilhetinho · Palco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/vendor/supabase.js"></script>
+<script src="/assets/vendor/qrcode.js"></script>
+<style>
+.stage{max-width:1100px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.t-head{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center;padding:16px 22px;background:var(--surface);border-bottom:1px solid var(--line)}
+.t-head h1{margin:0;font-family:var(--display);font-size:22px;font-weight:400}
+.t-head .sub{font-size:13px;color:var(--muted)}
+.stats{display:flex;gap:22px;margin-left:auto}
+.stat b{display:block;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.stat.gold b{color:var(--gold)}
+.t-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 22px;border-bottom:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:none;padding:8px 12px;font-size:13px;font-weight:700;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--text)}
+.cur-rule{font-size:13px;color:var(--muted)}
+.cur-rule b{color:var(--gold)}
+.t-body{flex:1;padding:18px 22px 40px;display:grid;gap:12px;align-content:start}
+.playing{display:flex;flex-wrap:wrap;align-items:center;gap:14px;border-radius:16px;padding:16px 18px;background:linear-gradient(100deg,rgba(58,214,201,.16),rgba(58,214,201,.03));border:1px solid var(--accent-2)}
+.playing .lbl{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2)}
+.playing .t{flex:1;min-width:200px}
+.playing .song{font-size:26px;font-weight:800;line-height:1.15}
+.playing .who{font-size:14px;color:var(--muted)}
+.eq{display:flex;gap:3px;align-items:flex-end;height:22px}
+.eq i{width:4px;background:var(--accent-2);border-radius:2px;animation:eq 1s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.2s}.eq i:nth-child(3){animation-delay:.4s}.eq i:nth-child(4){animation-delay:.1s}
+@keyframes eq{0%,100%{height:5px}50%{height:22px}}
+.card{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;border-left:4px solid var(--line)}
+.card.has-tip{border-left-color:var(--gold)}
+.card.is-ff{border-left-color:var(--gold);background:linear-gradient(90deg,rgba(255,194,75,.10),var(--surface) 40%)}
+.card .votes{text-align:center;min-width:48px}
+.card .votes b{display:block;font-size:26px;font-variant-numeric:tabular-nums;line-height:1}
+.card .votes span{font-size:10.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.card .song{font-size:21px;font-weight:800;line-height:1.2}
+.card .artist{font-size:14.5px;color:var(--muted);font-weight:600}
+.card .ded{margin-top:6px;font-size:15px;background:var(--surface-2);border-radius:10px;padding:6px 10px;display:inline-block}
+.card .ded em{color:var(--muted);font-style:normal;font-weight:700}
+.acts{display:flex;flex-direction:column;gap:6px}
+.acts .btn{padding:10px 14px}
+.big .card .song{font-size:30px}.big .card .artist{font-size:18px}.big .card .ded{font-size:18px}.big .playing .song{font-size:34px}
+.newflash{animation:flash 1.6s ease}
+@keyframes flash{0%{box-shadow:0 0 0 2px var(--accent),0 0 24px rgba(255,77,141,.6)}100%{box-shadow:none}}
+.done-list{font-size:13px;color:var(--muted);display:grid;gap:4px;margin-top:6px}
+details summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);padding:4px 0}
+.rules-panel{background:var(--surface);border:1px solid var(--gold);border-radius:16px;padding:16px 18px;display:grid;gap:12px}
+.rules-panel h3{margin:0;font-size:17px}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mode{text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:12px}
+.mode b{display:block;font-size:14.5px;margin-bottom:3px}
+.mode span{font-size:12.5px;color:var(--muted);line-height:1.35;display:block}
+.mode[aria-pressed="true"]{border-color:var(--gold);background:rgba(255,194,75,.08)}
+.mode[aria-pressed="true"] b{color:var(--gold)}
+.ff-opts{display:flex;flex-wrap:wrap;gap:12px}
+.ff-opts .field{margin:0;width:160px}
+.foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.foot small{color:var(--muted);font-size:12.5px;max-width:52ch}
+.pair{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:26px;text-align:center}
+.pair h1{margin:0;font-size:24px}
+.pair p{margin:0;color:var(--muted);max-width:40ch}
+.pair img{width:240px;height:240px;background:#fff;border-radius:14px;padding:10px;image-rendering:pixelated}
+.pair .timer{font-size:13px;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
+@media (max-width:700px){.modes{grid-template-columns:1fr}.card{grid-template-columns:1fr}.card .votes{display:flex;gap:6px;align-items:baseline;text-align:left}.acts{flex-direction:row;flex-wrap:wrap}.stats{margin-left:0}}
+</style>
+</head>
+<body>
+<div id="root"><div class="center"><div class="spinner" aria-label="Carregando"></div></div></div>
+
+<script type="module">
+import { sb, configured, ensureSession, esc, brl, ago, fmtDay, MODE_NAME, STATUS_TXT, errMsg, qrDataUrl,
+         toast, store, notConfigured, sortQueue } from "/assets/common.js";
+
+const root = document.getElementById("root");
+let me = null, ev = null, reqs = [], sortBy = store("palco_sort") || "votos", big = !!store("palco_big");
+let showRules = false, rulesDraft = null, pairTimer = null, pairChannel = null, seen = new Set();
+
+init();
+async function init() {
+  if (!configured) return notConfigured(root);
+  try { me = (await ensureSession()).user.id; }
+  catch (e) { root.innerHTML = `<div class="center"><p>${esc(errMsg(e))}</p></div>`; return; }
+
+  // 1) A própria banda abrindo o palco no aparelho dela: palco?evento=<id>
+  const evParam = new URLSearchParams(location.search).get("evento");
+  if (evParam) {
+    const { data } = await sb.from("events").select("*, bands(name)").eq("id", evParam).maybeSingle();
+    if (data && data.band_id === me) return startStage(data);
+  }
+  // 2) Tablet já pareado: pega o evento aprovado mais recente que ainda não acabou.
+  const { data: pairs } = await sb.from("pairings").select("event_id, approved_at, events(*, bands(name))")
+    .not("approved_at", "is", null).order("approved_at", { ascending: false }).limit(5);
+  const live = (pairs || []).find(p => p.events && new Date(p.events.ends_at).getTime() + 3600e3 > Date.now());
+  if (live) return startStage(live.events);
+  // 3) Senão, mostra o QR de pareamento.
+  pairingScreen();
+}
+
+/* ---------- Pareamento ---------- */
+async function pairingScreen() {
+  root.innerHTML = `<div class="pair">
+    <a class="logo" href="/">Bilhetinho</a>
+    <h1>Conectar este tablet ao palco</h1>
+    <p>Abra a câmera do celular da banda (já logado no Bilhetinho) e aponte para este código.</p>
+    <img id="pairQR" alt="QR code de pareamento">
+    <div class="timer" id="pairTimer"></div>
+    <p class="hint">O código muda a cada 30 segundos. Uma foto antiga não funciona.</p>
+  </div>`;
+  pairChannel = sb.channel("pair-" + me)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pairings", filter: "tablet_uid=eq." + me }, async p => {
+      if (!p.new.approved_at || !p.new.event_id) return;
+      clearInterval(pairTimer);
+      const { data } = await sb.from("events").select("*, bands(name)").eq("id", p.new.event_id).single();
+      sb.removeChannel(pairChannel);
+      startStage(data);
+      toast(`Tablet conectado à <b>${esc(data.bands?.name || "banda")}</b>.`);
+    }).subscribe();
+  let left = 0;
+  async function newCode() {
+    try {
+      const { data: code, error } = await sb.rpc("start_pairing");
+      if (error) throw error;
+      document.getElementById("pairQR").src = qrDataUrl(location.origin + "/banda?pair=" + code, 6);
+      left = 30;
+    } catch (e) { document.getElementById("pairTimer").textContent = errMsg(e); left = 5; }
+  }
+  await newCode();
+  pairTimer = setInterval(async () => {
+    left--;
+    const t = document.getElementById("pairTimer");
+    if (t) t.textContent = "Novo código em " + Math.max(left, 0) + "s";
+    if (left <= 0) await newCode();
+  }, 1000);
+}
+
+/* ---------- Palco ---------- */
+async function startStage(event) {
+  ev = event;
+  root.innerHTML = `<div class="stage ${big ? "big" : ""}" id="stage">
+    <header class="t-head">
+      <div><h1 id="bandName"></h1><div class="sub" id="bandSub"></div></div>
+      <div class="stats">
+        <div class="stat"><b id="stQueue">0</b><span>Na fila</span></div>
+        <div class="stat"><b id="stPlayed">0</b><span>Tocadas</span></div>
+        <div class="stat gold"><b id="stTips">R$ 0</b><span>Pix da noite</span></div>
+      </div>
+    </header>
+    <div class="t-tools">
+      <div class="seg" role="group" aria-label="Ordenar fila">
+        <button type="button" data-sort="votos">Mais pedidas</button>
+        <button type="button" data-sort="chegada">Ordem de chegada</button>
+      </div>
+      <button type="button" class="chip-btn" id="bigBtn" aria-pressed="${big}">Letra grande</button>
+      <button type="button" class="chip-btn" id="rulesBtn" aria-pressed="false" style="border-color:rgba(255,194,75,.5)">Regras do Pix</button>
+      <span class="cur-rule" id="curRule"></span>
+      <span style="flex:1"></span>
+      <button type="button" class="chip-btn" id="logoutBtn">Desconectar</button>
+    </div>
+    <main class="t-body" id="tBody"></main>
+  </div>`;
+  document.getElementById("bandName").textContent = ev.bands?.name || "Palco";
+  document.getElementById("bandSub").textContent = "Pedidos ao vivo · " + ev.name + " · " + fmtDay(ev.starts_at);
+  document.querySelectorAll("[data-sort]").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.sort === sortBy));
+    b.addEventListener("click", () => { sortBy = b.dataset.sort; store("palco_sort", sortBy); document.querySelectorAll("[data-sort]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); renderStage(); });
+  });
+  document.getElementById("bigBtn").addEventListener("click", e => {
+    big = !big; store("palco_big", big); e.currentTarget.setAttribute("aria-pressed", String(big));
+    document.getElementById("stage").classList.toggle("big", big);
+  });
+  document.getElementById("rulesBtn").addEventListener("click", e => {
+    showRules = !showRules; rulesDraft = { mode: ev.pix_mode, price: ev.ff_price, limit: ev.ff_limit };
+    e.currentTarget.setAttribute("aria-pressed", String(showRules)); renderStage();
+  });
+  document.getElementById("logoutBtn").addEventListener("click", async () => {
+    if (!document.getElementById("logoutBtn").dataset.sure) {
+      document.getElementById("logoutBtn").dataset.sure = "1";
+      document.getElementById("logoutBtn").textContent = "Toque de novo para desconectar";
+      return;
+    }
+    await sb.auth.signOut(); location.href = location.pathname;
+  });
+
+  const { data } = await sb.from("requests").select("*").eq("event_id", ev.id).order("created_at");
+  reqs = data || [];
+  reqs.forEach(r => seen.add(r.id));
+  renderStage();
+
+  sb.channel("palco-" + ev.id)
+    .on("postgres_changes", { event: "*", schema: "public", table: "requests", filter: "event_id=eq." + ev.id }, p => {
+      if (p.eventType === "DELETE") reqs = reqs.filter(r => r.id !== p.old.id);
+      else { const i = reqs.findIndex(r => r.id === p.new.id); if (i >= 0) reqs[i] = p.new; else reqs.push(p.new); }
+      renderStage();
+    })
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "events", filter: "id=eq." + ev.id }, p => {
+      ev = { ...ev, ...p.new }; renderStage();
+    })
+    .subscribe();
+  setInterval(renderStage, 60000);
+  document.addEventListener("visibilitychange", async () => {
+    if (document.hidden) return;
+    const { data } = await sb.from("requests").select("*").eq("event_id", ev.id).order("created_at");
+    reqs = data || []; renderStage(); keepAwake();
+  });
+  keepAwake();
+}
+
+// Mantém a tela do tablet acesa durante o show, quando o navegador permite.
+async function keepAwake() { try { await navigator.wakeLock?.request("screen"); } catch (_) {} }
+
+function rulesPanel() {
+  const r = rulesDraft;
+  const modes = [
+    ["destaque", "Pix só destaca", "O pedido ganha destaque dourado. A ordem segue pelos votos."],
+    ["prioridade", "Pix dá prioridade", "Qualquer Pix vale como 2 votos a mais."],
+    ["furafila", "Fura-fila", "Um valor fixo leva o pedido ao topo, com limite por hora."]
+  ];
+  return `<div class="rules-panel">
+    <div><h3>Regras do Pix neste show</h3><p class="lead" style="margin:0">A plateia vê a regra antes de pagar.</p></div>
+    <div class="modes">${modes.map(([k, t, s]) => `<button type="button" class="mode" data-mode="${k}" aria-pressed="${r.mode === k}"><b>${t}</b><span>${s}</span></button>`).join("")}</div>
+    ${r.mode === "furafila" ? `<div class="ff-opts">
+      <div class="field"><label for="ffPrice">Valor do fura-fila</label><select class="inp" id="ffPrice">${[20, 30, 50, 100].map(v => `<option value="${v}" ${r.price === v ? "selected" : ""}>${brl(v)}</option>`).join("")}</select></div>
+      <div class="field"><label for="ffLimit">Limite por hora</label><select class="inp" id="ffLimit">${[1, 2, 3, 5].map(v => `<option value="${v}" ${r.limit === v ? "selected" : ""}>${v} por hora</option>`).join("")}</select></div>
+    </div>` : ""}
+    <div class="foot"><small>Vale só para pedidos novos. Quem já pagou mantém a regra de quando pediu.</small>
+      <div style="display:flex;gap:8px"><button type="button" class="btn" id="rulesCancel">Cancelar</button><button type="button" class="btn" id="rulesSave" style="background:var(--gold);color:#241a00;border-color:var(--gold)">Aplicar regra</button></div></div>
+  </div>`;
+}
+
+function renderStage() {
+  const tBody = document.getElementById("tBody");
+  if (!tBody) return;
+  const q = sortQueue(reqs.filter(r => r.status === "fila"), sortBy);
+  const np = reqs.find(r => r.status === "tocando");
+  const done = reqs.filter(r => r.status === "tocada" || r.status === "nao").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  document.getElementById("stQueue").textContent = q.length;
+  document.getElementById("stPlayed").textContent = reqs.filter(r => r.status === "tocada").length;
+  document.getElementById("stTips").textContent = brl(reqs.filter(r => r.tip_status === "paid").reduce((s, r) => s + r.tip, 0));
+  document.getElementById("curRule").innerHTML = "Regra atual: <b>" + MODE_NAME[ev.pix_mode] + (ev.pix_mode === "furafila" ? " · " + brl(ev.ff_price) + " · " + ev.ff_limit + "/hora" : "") + "</b>";
+  const isFF = r => r.ff && r.tip_status === "paid";
+
+  tBody.innerHTML = `
+    ${showRules ? rulesPanel() : ""}
+    ${np ? `<div class="playing">
+      <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="t"><div class="lbl">Tocando agora</div><div class="song">${esc(np.song)}</div><div class="who">${esc(np.artist || "Pedido livre")} · pedido de ${esc(np.from_name)}${np.mesa ? " · mesa " + esc(np.mesa) : ""}</div></div>
+      <button type="button" class="btn go" data-act="tocada" data-id="${np.id}">Marcar como tocada</button>
+    </div>` : ""}
+    ${q.length ? q.map(r => `
+      <article class="card ${r.tip_status === "paid" ? "has-tip" : ""} ${isFF(r) ? "is-ff" : ""} ${seen.has(r.id) ? "" : "newflash"}">
+        <div class="votes"><b>${r.votes}</b><span>votos</span></div>
+        <div>
+          <div class="song">${esc(r.song)}</div>
+          <div class="artist">${esc(r.artist || "Pedido livre, confira o nome")}</div>
+          ${r.message ? `<div class="ded"><em>${esc(r.from_name)}${r.mesa ? " (mesa " + esc(r.mesa) + ")" : ""}:</em> ${esc(r.message)}</div>`
+                      : `<div class="artist" style="font-weight:500;margin-top:4px;font-size:13px">Pedido de ${esc(r.from_name)}${r.mesa ? " · mesa " + esc(r.mesa) : ""}</div>`}
+          <div class="tags">
+            ${isFF(r) ? `<span class="pill ff">Fura-fila ${brl(r.tip)}</span>` : (r.tip_status === "paid" ? `<span class="pill pix">Pix ${brl(r.tip)}</span>` : "")}
+            <span class="pill fila">${ago(r.created_at)}</span>
+          </div>
+        </div>
+        <div class="acts">
+          <button type="button" class="btn go" data-act="tocando" data-id="${r.id}">Vou tocar</button>
+          <button type="button" class="btn" data-act="nao" data-id="${r.id}">Não tenho</button>
+        </div>
+      </article>`).join("") : `<div class="empty">Nenhum pedido na fila agora. Os pedidos aparecem aqui na hora.</div>`}
+    ${done.length ? `<details><summary>Encerrados (${done.length})</summary><div class="done-list">
+      ${done.map(r => `<div><span class="pill ${r.status}">${STATUS_TXT[r.status]}</span> ${esc(r.song)} · ${esc(r.artist || "")}</div>`).join("")}
+    </div></details>` : ""}`;
+  reqs.forEach(r => seen.add(r.id));
+
+  tBody.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    const { error } = await sb.rpc("set_status", { p_request: b.dataset.id, p_status: b.dataset.act });
+    if (error) { toast(esc(errMsg(error)), true); b.disabled = false; }
+  }));
+  if (showRules) {
+    tBody.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { rulesDraft.mode = b.dataset.mode; renderStage(); }));
+    document.getElementById("ffPrice")?.addEventListener("change", e => rulesDraft.price = +e.target.value);
+    document.getElementById("ffLimit")?.addEventListener("change", e => rulesDraft.limit = +e.target.value);
+    document.getElementById("rulesCancel").addEventListener("click", () => { showRules = false; document.getElementById("rulesBtn").setAttribute("aria-pressed", "false"); renderStage(); });
+    document.getElementById("rulesSave").addEventListener("click", async () => {
+      const { data, error } = await sb.rpc("update_event_rules", { p_event: ev.id, p_pix_mode: rulesDraft.mode, p_ff_price: rulesDraft.price, p_ff_limit: rulesDraft.limit });
+      if (error) return toast(esc(errMsg(error)), true);
+      ev = { ...ev, ...data }; showRules = false;
+      document.getElementById("rulesBtn").setAttribute("aria-pressed", "false");
+      renderStage(); toast(`Regra aplicada: <b>${MODE_NAME[ev.pix_mode]}</b>. A plateia já vê a mudança.`);
+    });
+  }
+}
+</script>
+</body>
+</html>

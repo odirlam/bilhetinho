@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B1830">
+<title>Bilhetinho · Área da banda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/vendor/supabase.js"></script>
+<script src="/assets/vendor/qrcode.js"></script>
+<style>
+.ev-row{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.ev-row .d{flex:none;width:52px;text-align:center;border-right:1px solid var(--line);padding-right:10px}
+.ev-row .d b{display:block;font-size:22px;line-height:1}
+.ev-row .d span{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.ev-row .i{flex:1;min-width:0}
+.ev-row .i b{display:block;font-size:15.5px}
+.ev-row .i span{font-size:12.5px;color:var(--muted)}
+.ev-row.live{border-color:var(--ok)}
+.paper{background:#FBF7EF;color:#1B1530;border-radius:14px;padding:26px 22px 18px;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.45);position:relative;overflow:hidden;margin:6px 0 14px}
+.paper::before{content:"";position:absolute;left:0;right:0;top:0;height:8px;background:repeating-linear-gradient(90deg,var(--accent) 0 40px,var(--accent-2) 40px 80px,var(--gold) 80px 120px)}
+.paper .brand{font-family:var(--display);color:var(--accent);font-size:15px}
+.paper h2{font-family:var(--display);font-weight:400;font-size:30px;line-height:1.05;margin:10px 0 4px;color:#1B1530}
+.paper .evl{font-size:14.5px;font-weight:700}
+.paper .when{font-size:13px;color:#5d5578}
+.paper img{width:210px;height:210px;margin:14px auto 8px;display:block;image-rendering:pixelated}
+.paper .how{font-size:14px;font-weight:600}
+.paper .url{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#5d5578;margin-top:4px;word-break:break-all}
+.paper .valid{margin-top:12px;font-size:11.5px;color:#7a7392;border-top:1px dashed #d8d0c0;padding-top:10px}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.okbig{width:64px;height:64px;border-radius:50%;background:var(--ok);display:grid;place-items:center;color:#06210f;font-size:30px;font-weight:800}
+.back{background:none;border:0;color:var(--accent-2);font-weight:700;padding:0;margin-bottom:12px}
+@media print{
+  body{background:#fff}
+  body *{visibility:hidden}
+  .paper,.paper *{visibility:visible}
+  .paper{position:absolute;left:50%;top:20mm;transform:translateX(-50%);width:120mm;box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="head" style="display:flex;align-items:center;gap:12px">
+    <a class="logo" href="/">Bilhetinho</a>
+    <span class="sub" style="margin:0" id="who">Área da banda</span>
+    <span style="flex:1"></span>
+    <button type="button" class="chip-btn" id="logout" hidden>Sair</button>
+  </header>
+  <main class="body" id="body"><div class="center"><div class="spinner" aria-label="Carregando"></div></div></main>
+</div>
+
+<script type="module">
+import { sb, configured, esc, brl, fmtDay, fmtTime, MODE_NAME, errMsg, qrDataUrl, toast, notConfigured } from "/assets/common.js";
+
+const body = document.getElementById("body");
+const params = new URLSearchParams(location.search);
+let pairCode = params.get("pair");
+let user = null, band = null, events = [];
+
+if (!configured) notConfigured(body); else init();
+
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  user = session && !session.user.is_anonymous ? session.user : null;
+  if (!user) return loginView();
+  document.getElementById("logout").hidden = false;
+  document.getElementById("logout").onclick = async () => { await sb.auth.signOut(); location.href = "/banda"; };
+  const { data } = await sb.from("bands").select("*").eq("id", user.id).maybeSingle();
+  band = data;
+  if (!band) return bandNameView();
+  document.getElementById("who").textContent = band.name;
+  await loadEvents();
+  if (pairCode) return pairView();
+  listView();
+}
+
+// Quando o link do e-mail é aberto, o Supabase avisa aqui e recarregamos.
+sb?.auth.onAuthStateChange((evt, session) => {
+  if (evt === "SIGNED_IN" && session && !session.user.is_anonymous && !user) init();
+});
+
+/* ---------- Login por e-mail ---------- */
+function loginView(sentTo) {
+  body.innerHTML = sentTo ? `
+    <div class="center">
+      <div class="okbig">✓</div>
+      <h1 class="title">Confira seu e-mail</h1>
+      <p>Mandamos um link de acesso para <b>${esc(sentTo)}</b>. Abra o e-mail <b>neste aparelho</b> e toque no link.</p>
+      <p class="hint">Não chegou? Veja a caixa de spam ou tente de novo em um minuto.</p>
+      <button class="ghost" type="button" id="again" style="max-width:280px">Usar outro e-mail</button>
+    </div>` : `
+    <h1 class="title">Entrar como banda</h1>
+    <p class="lead">${pairCode ? "Entre com o e-mail da banda para conectar o tablet do palco." : "Sem senha: você recebe um link de acesso no seu e-mail."}</p>
+    <form id="loginForm" novalidate>
+      <div class="field"><label for="email">E-mail</label><input class="inp" id="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required></div>
+      <button class="cta" type="submit" id="loginBtn">Receber link de acesso</button>
+    </form>`;
+  document.getElementById("again")?.addEventListener("click", () => loginView());
+  document.getElementById("loginForm")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return toast("Digite um e-mail válido.", true);
+    const btn = document.getElementById("loginBtn"); btn.disabled = true; btn.textContent = "Enviando…";
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + "/banda" + location.search } });
+    if (error) { btn.disabled = false; btn.textContent = "Receber link de acesso"; return toast(esc(errMsg(error)), true); }
+    loginView(email);
+  });
+}
+
+/* ---------- Nome da banda (primeiro acesso) ---------- */
+function bandNameView() {
+  body.innerHTML = `
+    <h1 class="title">Bem-vindo ao Bilhetinho</h1>
+    <p class="lead">Como a banda aparece para a plateia?</p>
+    <form id="bandForm" novalidate>
+      <div class="field"><label for="bname">Nome da banda ou artista</label><input class="inp" id="bname" maxlength="60" placeholder="Ex.: Banda Replay" required></div>
+      <button class="cta" type="submit">Continuar</button>
+    </form>`;
+  document.getElementById("bandForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = document.getElementById("bname").value.trim();
+    if (name.length < 2) return toast("Digite o nome da banda.", true);
+    const { data, error } = await sb.rpc("save_band", { p_name: name });
+    if (error) return toast(esc(errMsg(error)), true);
+    band = data; init();
+  });
+}
+
+/* ---------- Eventos ---------- */
+async function loadEvents() {
+  const { data } = await sb.from("events").select("*").eq("band_id", user.id).order("starts_at");
+  events = data || [];
+}
+const isLive = ev => Date.now() >= new Date(ev.starts_at).getTime() - 3 * 3600e3 && Date.now() <= new Date(ev.ends_at).getTime() + 3600e3;
+const isPast = ev => Date.now() > new Date(ev.ends_at).getTime() + 3600e3;
+const eventUrl = ev => location.origin + "/e/" + ev.slug;
+
+function evRow(ev) {
+  const d = new Date(ev.starts_at);
+  return `<button type="button" class="ev-row ${isLive(ev) ? "live" : ""}" data-ev="${ev.id}">
+    <div class="d"><b>${String(d.getDate()).padStart(2, "0")}</b><span>${d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span></div>
+    <div class="i"><b>${esc(ev.name)}</b><span>${esc(ev.venue || "Local a definir")} · ${fmtTime(ev.starts_at)} às ${fmtTime(ev.ends_at)}</span>
+      ${isLive(ev) ? `<div><span class="pill tocada" style="margin-top:4px">Pedidos abertos</span></div>` : ""}</div>
+  </button>`;
+}
+
+function listView() {
+  history.replaceState(null, "", "/banda");
+  const upcoming = events.filter(e => !isPast(e)), past = events.filter(isPast).reverse();
+  body.innerHTML = `
+    <h1 class="title">Seus eventos</h1>
+    <p class="lead">Crie um evento para gerar o QR da plateia.</p>
+    <button class="cta" type="button" id="newEv">Criar evento</button>
+    <div class="sec">Próximos</div>
+    ${upcoming.length ? upcoming.map(evRow).join("") : `<div class="empty">Nenhum evento marcado.</div>`}
+    ${past.length ? `<details style="margin-top:12px"><summary>Eventos anteriores (${past.length})</summary><div style="margin-top:8px">${past.map(evRow).join("")}</div></details>` : ""}`;
+  document.getElementById("newEv").addEventListener("click", createView);
+  body.querySelectorAll("[data-ev]").forEach(b => b.addEventListener("click", () => detailView(events.find(e => e.id === b.dataset.ev))));
+}
+
+// Valor para <input type="datetime-local"> no fuso do aparelho.
+function localInput(d) {
+  const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return z.toISOString().slice(0, 16);
+}
+function nextSaturday(hour) {
+  const d = new Date(); d.setHours(hour, 0, 0, 0);
+  d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
+  return d;
+}
+
+function createView() {
+  const s = nextSaturday(22), e = new Date(s.getTime() + 5 * 3600e3);
+  const f = { mode: "prioridade", price: 30, limit: 2 };
+  body.innerHTML = `
+    <button class="back" type="button" id="back">← Voltar</button>
+    <h1 class="title">Criar evento</h1>
+    <p class="lead">Preencha uma vez. O QR da plateia fica pronto na hora.</p>
+    <form id="evForm" novalidate>
+      <div class="field"><label for="eName">Nome do evento</label><input class="inp" id="eName" maxlength="60" placeholder="Ex.: Flash Back Night" required></div>
+      <div class="field"><label for="eVenue">Local</label><input class="inp" id="eVenue" maxlength="60" placeholder="Ex.: Clube Atlântico"></div>
+      <div class="row-half">
+        <div class="field"><label for="eStart">Começa</label><input class="inp" type="datetime-local" id="eStart" value="${localInput(s)}"></div>
+        <div class="field"><label for="eEnd">Termina</label><input class="inp" type="datetime-local" id="eEnd" value="${localInput(e)}"></div>
+      </div>
+      <p class="hint" style="margin:-6px 0 14px">Os pedidos abrem 3 horas antes do início e fecham 1 hora depois do fim. Para testar agora, ponha o início para hoje.</p>
+      <div class="field"><label for="eMode">Regra do Pix</label>
+        <select class="inp" id="eMode">${Object.keys(MODE_NAME).map(k => `<option value="${k}" ${k === f.mode ? "selected" : ""}>${MODE_NAME[k]}</option>`).join("")}</select>
+        <span class="hint">Dá para mudar durante o show, no tablet do palco.</span>
+      </div>
+      <div class="row-half" id="ffBox" hidden>
+        <div class="field"><label for="ePrice">Valor do fura-fila</label><select class="inp" id="ePrice">${[20, 30, 50, 100].map(v => `<option value="${v}" ${v === 30 ? "selected" : ""}>${brl(v)}</option>`).join("")}</select></div>
+        <div class="field"><label for="eLimit">Limite</label><select class="inp" id="eLimit">${[1, 2, 3, 5].map(v => `<option value="${v}" ${v === 2 ? "selected" : ""}>${v} por hora</option>`).join("")}</select></div>
+      </div>
+      <button class="cta" type="submit" id="evBtn">Criar evento</button>
+    </form>`;
+  document.getElementById("back").addEventListener("click", listView);
+  document.getElementById("eMode").addEventListener("change", e => document.getElementById("ffBox").hidden = e.target.value !== "furafila");
+  document.getElementById("evForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const name = document.getElementById("eName").value.trim();
+    const start = new Date(document.getElementById("eStart").value), end = new Date(document.getElementById("eEnd").value);
+    if (name.length < 2) return toast("Dê um nome ao evento.", true);
+    if (isNaN(start) || isNaN(end)) return toast("Confira a data e o horário.", true);
+    if (end <= start) return toast("O fim precisa ser depois do início.", true);
+    const btn = document.getElementById("evBtn"); btn.disabled = true; btn.textContent = "Criando…";
+    const { data, error } = await sb.rpc("create_event", {
+      p_name: name, p_venue: document.getElementById("eVenue").value.trim(),
+      p_starts: start.toISOString(), p_ends: end.toISOString(),
+      p_pix_mode: document.getElementById("eMode").value,
+      p_ff_price: +document.getElementById("ePrice").value, p_ff_limit: +document.getElementById("eLimit").value
+    });
+    if (error) { btn.disabled = false; btn.textContent = "Criar evento"; return toast(esc(errMsg(error)), true); }
+    await loadEvents();
+    toast("Evento criado! O <b>QR da plateia</b> está pronto.");
+    detailView(data);
+  });
+}
+
+function detailView(ev) {
+  const url = eventUrl(ev);
+  body.innerHTML = `
+    <button class="back" type="button" id="back">← Seus eventos</button>
+    <h1 class="title">${esc(ev.name)}</h1>
+    <p class="lead">${esc(ev.venue || "")}${ev.venue ? " · " : ""}${fmtDay(ev.starts_at)}, ${fmtTime(ev.starts_at)} às ${fmtTime(ev.ends_at)} · ${MODE_NAME[ev.pix_mode]}${ev.pix_mode === "furafila" ? " " + brl(ev.ff_price) : ""}</p>
+    <div class="paper">
+      <div class="brand">Bilhetinho</div>
+      <h2>Peça sua música</h2>
+      <div class="evl">${esc(ev.name)} · ${esc(band.name)}</div>
+      <div class="when">${esc(ev.venue || "")}${ev.venue ? " · " : ""}${fmtDay(ev.starts_at)}</div>
+      <img alt="QR code da plateia" src="${qrDataUrl(url, 8)}">
+      <div class="how">Aponte a câmera. Não precisa instalar nada.</div>
+      <div class="url">${esc(url.replace(/^https?:\/\//, ""))}</div>
+      <div class="valid">Vale só durante a festa: ${fmtDay(ev.starts_at)}, das ${fmtTime(ev.starts_at)} às ${fmtTime(ev.ends_at)}</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="button" id="print" style="padding:12px">Imprimir QR</button>
+      <button class="btn" type="button" id="copy" style="padding:12px">Copiar link</button>
+    </div>
+    <div class="sec">No dia do show</div>
+    <div class="card-box">
+      <b>Conectar o tablet do palco</b>
+      <p class="meta" style="margin:4px 0 0">No tablet, abra <b>${esc(location.host)}/palco</b>. Depois aponte a câmera deste celular para o QR que aparecer lá.</p>
+    </div>
+    <a class="ghost" style="display:block;text-align:center;text-decoration:none;color:var(--text)" href="/palco?evento=${ev.id}">Abrir o palco neste aparelho</a>
+    <a class="ghost" style="display:block;text-align:center;text-decoration:none;color:var(--text)" href="${esc(url)}" target="_blank" rel="noopener">Ver como a plateia vê</a>`;
+  document.getElementById("back").addEventListener("click", listView);
+  document.getElementById("print").addEventListener("click", () => window.print());
+  document.getElementById("copy").addEventListener("click", async e => {
+    try { await navigator.clipboard.writeText(url); e.target.textContent = "Link copiado"; } catch (_) { toast(esc(url)); }
+  });
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Pareamento do tablet ---------- */
+function pairView() {
+  const open = events.filter(e => !isPast(e));
+  if (!open.length) {
+    body.innerHTML = `<div class="center"><h1 class="title">Crie um evento primeiro</h1><p>Para conectar o tablet, a banda precisa ter um evento marcado.</p><button class="cta" type="button" id="mk" style="max-width:280px">Criar evento</button></div>`;
+    document.getElementById("mk").addEventListener("click", () => { pairCode = null; createView(); });
+    return;
+  }
+  const def = open.find(isLive) || open[0];
+  body.innerHTML = `
+    <h1 class="title">Conectar o tablet do palco</h1>
+    <p class="lead">Escolha o show. O tablet passa a mostrar os pedidos dele.</p>
+    <div class="field"><label for="pEv">Evento</label>
+      <select class="inp" id="pEv">${open.map(e => `<option value="${e.id}" ${e.id === def.id ? "selected" : ""}>${esc(e.name)} · ${fmtDay(e.starts_at)}</option>`).join("")}</select></div>
+    <button class="cta" type="button" id="pBtn">Conectar tablet</button>
+    <button class="ghost" type="button" id="pCancel">Cancelar</button>`;
+  document.getElementById("pCancel").addEventListener("click", () => { pairCode = null; listView(); });
+  document.getElementById("pBtn").addEventListener("click", async () => {
+    const btn = document.getElementById("pBtn"); btn.disabled = true; btn.textContent = "Conectando…";
+    const { error } = await sb.rpc("approve_pairing", { p_code: pairCode, p_event: document.getElementById("pEv").value });
+    if (error) { btn.disabled = false; btn.textContent = "Conectar tablet"; return toast(esc(errMsg(error)), true); }
+    pairCode = null; history.replaceState(null, "", "/banda");
+    body.innerHTML = `<div class="center"><div class="okbig">✓</div><h1 class="title">Tablet conectado!</h1><p>Os pedidos da plateia já aparecem no tablet do palco. Bom show!</p><button class="ghost" type="button" id="ok" style="max-width:280px">Voltar aos eventos</button></div>`;
+    document.getElementById("ok").addEventListener("click", listView);
+  });
+}
+</script>
+</body>
+</html>

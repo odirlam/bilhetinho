@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B1830">
+<title>Bilhetinho · Peça sua música</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/vendor/supabase.js"></script>
+<script src="/assets/vendor/qrcode.js"></script>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="center"><div class="spinner" aria-label="Carregando"></div></div>
+</div>
+
+<script type="module">
+import { sb, configured, ensureSession, esc, norm, brl, ago, fmtDay, fmtTime, MODE_NAME, STATUS_TXT,
+         eventWindow, errMsg, qrDataUrl, toast, store, notConfigured, voteIcon, CATALOG } from "/assets/common.js";
+
+const app = document.getElementById("app");
+const slug = (location.pathname.match(/\/e\/([^/?#]+)/) || [])[1] || new URLSearchParams(location.search).get("s");
+
+let ev = null, me = null, reqs = [], myVotes = new Set(), tab = "pedir";
+let draft = { song: null, query: "", msg: "", tip: 0, ff: false };
+const profile = store("perfil") || { name: "", mesa: "" };
+
+function fatal(msg) {
+  app.innerHTML = `<div class="center"><a class="logo" href="/">Bilhetinho</a><p>${msg}</p></div>`;
+}
+
+init();
+async function init() {
+  if (!configured) return notConfigured(app);
+  if (!slug) return fatal("Endereço de evento inválido. Escaneie o QR code da festa de novo.");
+  try { me = (await ensureSession()).user.id; }
+  catch (e) { return fatal("Não foi possível entrar. " + esc(errMsg(e))); }
+
+  const { data, error } = await sb.from("events").select("*, bands(name)").eq("slug", decodeURIComponent(slug)).maybeSingle();
+  if (error || !data) return fatal("Evento não encontrado. Confira o QR code.");
+  ev = data;
+
+  app.innerHTML = `
+    <header class="head">
+      <div class="ev" id="evName"></div>
+      <div class="sub" id="evSub"></div>
+    </header>
+    <main class="body" id="body"></main>
+    <nav class="nav" aria-label="Menu"><div class="nav-in" role="tablist">
+      <button role="tab" data-tab="pedir" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Pedir</button>
+      <button role="tab" data-tab="fila" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Fila</button>
+      <button role="tab" data-tab="meus" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 4z"/></svg>Meus<span class="count" id="myCount" hidden></span></button>
+    </div></nav>
+    <div class="sheet" id="sheet" hidden><div class="sheet-card" id="sheetCard"></div></div>`;
+  document.querySelectorAll(".nav button").forEach(b => b.addEventListener("click", () => { tab = b.dataset.tab; render(); }));
+  header();
+
+  await Promise.all([loadReqs(), loadVotes()]);
+  render();
+
+  sb.channel("plateia-" + ev.id)
+    .on("postgres_changes", { event: "*", schema: "public", table: "requests", filter: "event_id=eq." + ev.id }, onReqChange)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "events", filter: "id=eq." + ev.id }, p => {
+      const old = ev.pix_mode;
+      ev = { ...ev, ...p.new };
+      header();
+      if (tab === "pedir") renderPedir();
+      if (old !== ev.pix_mode) toast(`A banda mudou a regra do Pix: <b>${MODE_NAME[ev.pix_mode]}</b>.`);
+    })
+    .subscribe();
+  // Ao voltar para o app (tela bloqueada etc.), recarrega a fila.
+  document.addEventListener("visibilitychange", async () => { if (!document.hidden) { await loadReqs(); refresh(); } });
+}
+
+async function loadReqs() {
+  const { data } = await sb.from("requests").select("*").eq("event_id", ev.id).order("created_at");
+  reqs = data || [];
+}
+async function loadVotes() {
+  const { data } = await sb.from("votes").select("request_id");
+  myVotes = new Set((data || []).map(v => v.request_id));
+}
+
+function header() {
+  document.getElementById("evName").textContent = ev.name;
+  const w = eventWindow(ev);
+  const status = w === "aberto" ? `<span class="badge-in">Pedidos abertos</span>`
+               : w === "antes" ? `<span class="badge-off">Abre em ${fmtDay(ev.starts_at)}, ${fmtTime(ev.starts_at)}</span>`
+               : `<span class="badge-off">Evento encerrado</span>`;
+  document.getElementById("evSub").innerHTML = `${status} · ${esc(ev.bands?.name || "")}${ev.venue ? " · " + esc(ev.venue) : ""}`;
+}
+
+function onReqChange(p) {
+  if (p.eventType === "INSERT") { if (!reqs.some(r => r.id === p.new.id)) reqs.push(p.new); }
+  else if (p.eventType === "UPDATE") {
+    const i = reqs.findIndex(r => r.id === p.new.id);
+    const before = i >= 0 ? reqs[i] : null;
+    if (i >= 0) reqs[i] = p.new; else reqs.push(p.new);
+    if (p.new.user_id === me && before && before.status !== p.new.status) {
+      const s = p.new.song;
+      if (p.new.status === "tocando") toast(`A banda vai tocar <b>${esc(s)}</b> agora!`);
+      else if (p.new.status === "nao") toast(`A banda não tem <b>${esc(s)}</b> no repertório hoje. Que tal pedir outra?`);
+      else if (p.new.status === "tocada") toast(`<b>${esc(s)}</b> foi tocada. Valeu pelo pedido!`);
+    }
+  } else if (p.eventType === "DELETE") { reqs = reqs.filter(r => r.id !== p.old.id); }
+  refresh();
+}
+
+// Atualiza a aba aberta sem apagar o que a pessoa está digitando.
+function refresh() {
+  updateCount();
+  if (tab === "fila") renderFila();
+  else if (tab === "meus") renderMeus();
+}
+
+function updateCount() {
+  const n = reqs.filter(r => r.user_id === me).length;
+  const c = document.getElementById("myCount");
+  c.hidden = !n; c.textContent = n;
+}
+
+function render() {
+  document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  updateCount();
+  if (tab === "pedir") renderPedir(); else if (tab === "fila") renderFila(); else renderMeus();
+  window.scrollTo(0, 0);
+}
+
+const body = () => document.getElementById("body");
+const findActive = song => reqs.find(r => norm(r.song) === norm(song) && (r.status === "fila" || r.status === "tocando"));
+
+/* ---------- Pedir ---------- */
+function ffUsedThisHour() {
+  const h = Date.now() - 3600e3;
+  return reqs.filter(r => r.ff && r.tip_status !== "none" && new Date(r.created_at) > h).length;
+}
+function ruleText() {
+  if (ev.pix_mode === "destaque") return `<b>Regra da banda:</b> o Pix vai direto para a banda e destaca seu pedido na tela. A ordem continua pelos votos.`;
+  if (ev.pix_mode === "prioridade") return `<b>Regra da banda:</b> pedidos com Pix ganham uma pequena prioridade na fila (valem 2 votos a mais). A banda decide o que toca.`;
+  const left = Math.max(0, ev.ff_limit - ffUsedThisHour());
+  return `<b>Regra da banda:</b> o fura-fila custa ${brl(ev.ff_price)} e coloca seu pedido no topo. Limite de ${ev.ff_limit} por hora: ${left ? (left === 1 ? "resta 1" : "restam " + left) : "esgotado nesta hora"}.`;
+}
+function tipOptions() {
+  if (ev.pix_mode !== "furafila") return [0, 5, 10, 20].map(v => ({ v, label: v ? "R$ " + v : "Sem Pix" }));
+  const full = ffUsedThisHour() >= ev.ff_limit;
+  return [{ v: 0, label: "Sem Pix" }, { v: 5, label: "R$ 5", sub: "gorjeta" }, { v: 10, label: "R$ 10", sub: "gorjeta" },
+          { v: ev.ff_price, label: "R$ " + ev.ff_price, sub: full ? "esgotado" : "fura-fila", ff: true, off: full }];
+}
+function sendLabel() {
+  if (draft.ff) return `Pedir com fura-fila (${brl(draft.tip)})`;
+  return draft.tip ? `Enviar pedido + Pix de ${brl(draft.tip)}` : "Enviar pedido";
+}
+
+function renderPedir() {
+  const w = eventWindow(ev);
+  const closed = w !== "aberto";
+  if (draft.ff && ev.pix_mode !== "furafila") { draft.ff = false; draft.tip = 0; }
+  body().innerHTML = `
+    <h1 class="title">Pedir uma música</h1>
+    <p class="lead">Seu pedido aparece na tela da banda, sem bilhetinho perdido.</p>
+    ${closed ? `<div class="notice">${w === "antes" ? `Os pedidos abrem em ${fmtDay(ev.starts_at)}, às ${fmtTime(ev.starts_at)}.` : "Este evento já terminou. Obrigado por participar!"}</div>` : ""}
+    <div class="field">
+      <label for="fSong">Música</label>
+      <div id="songSlot"></div>
+    </div>
+    <div class="field">
+      <label for="fMsg">Dedicatória (opcional)</label>
+      <input class="inp" id="fMsg" maxlength="80" placeholder="Ex.: Pra turma de 1989, mesa 4" value="${esc(draft.msg)}">
+      <div class="hint r" id="msgCount">${draft.msg.length}/80</div>
+    </div>
+    <div class="row2">
+      <div class="field"><label for="fName">Seu nome</label><input class="inp" id="fName" maxlength="30" autocomplete="given-name" value="${esc(profile.name)}"></div>
+      <div class="field"><label for="fMesa">Mesa</label><input class="inp" id="fMesa" maxlength="6" inputmode="numeric" value="${esc(profile.mesa)}"></div>
+    </div>
+    <div class="field">
+      <span class="lbl" id="tipLbl">Pix para a banda (opcional)</span>
+      <div class="rule-banner">${ruleText()}</div>
+      <div class="tips" role="group" aria-labelledby="tipLbl">
+        ${tipOptions().map(o => `<button type="button" data-tip="${o.v}" data-ff="${o.ff ? 1 : 0}" aria-pressed="${draft.tip === o.v && draft.ff === !!o.ff}" ${o.off ? "disabled" : ""}>${o.label}${o.sub ? `<small>${o.sub}</small>` : ""}</button>`).join("")}
+      </div>
+    </div>
+    <button class="cta" id="send" type="button" disabled>${sendLabel()}</button>
+    <p class="hint" style="text-align:center;margin-top:12px">Pix em modo de teste: nenhum pagamento de verdade acontece.</p>`;
+  renderSongSlot();
+  const fMsg = document.getElementById("fMsg");
+  fMsg.addEventListener("input", () => { draft.msg = fMsg.value; document.getElementById("msgCount").textContent = fMsg.value.length + "/80"; });
+  document.getElementById("fName").addEventListener("input", e => { profile.name = e.target.value; store("perfil", profile); updateSend(); });
+  document.getElementById("fMesa").addEventListener("input", e => { profile.mesa = e.target.value.replace(/[^0-9a-zA-Z]/g, ""); e.target.value = profile.mesa; store("perfil", profile); });
+  body().querySelectorAll("[data-tip]").forEach(b => b.addEventListener("click", () => {
+    draft.tip = +b.dataset.tip; draft.ff = b.dataset.ff === "1";
+    body().querySelectorAll("[data-tip]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.tip === draft.tip && (x.dataset.ff === "1") === draft.ff)));
+    updateSend();
+  }));
+  document.getElementById("send").addEventListener("click", submit);
+  updateSend();
+}
+function updateSend() {
+  const b = document.getElementById("send");
+  if (!b) return;
+  b.disabled = !draft.song || !profile.name.trim() || eventWindow(ev) !== "aberto";
+  b.textContent = sendLabel();
+}
+
+function renderSongSlot() {
+  const slot = document.getElementById("songSlot");
+  if (draft.song) {
+    slot.innerHTML = `<div class="picked"><span class="vinyl" aria-hidden="true"></span><div><b>${esc(draft.song.song)}</b><span>${esc(draft.song.artist || "Pedido livre")}</span></div><button type="button" id="chg">Trocar</button></div>`;
+    document.getElementById("chg").addEventListener("click", () => { draft.song = null; renderSongSlot(); updateSend(); setTimeout(() => document.getElementById("fSong")?.focus(), 0); });
+    return;
+  }
+  slot.innerHTML = `<input class="inp" id="fSong" autocomplete="off" placeholder="Nome da música ou do artista" value="${esc(draft.query)}" role="combobox" aria-expanded="false" aria-controls="sugg"><div class="sugg" id="sugg" role="listbox" hidden></div>`;
+  const inp = document.getElementById("fSong"), box = document.getElementById("sugg");
+  let hl = -1, items = [];
+  function show() {
+    const q = norm(inp.value);
+    draft.query = inp.value;
+    if (!q) { box.hidden = true; inp.setAttribute("aria-expanded", "false"); return; }
+    const fromCat = CATALOG.filter(([s, a]) => norm(s).includes(q) || norm(a).includes(q)).slice(0, 5).map(([s, a]) => ({ song: s, artist: a }));
+    const fromQueue = reqs.filter(r => (r.status === "fila" || r.status === "tocando") && norm(r.song).includes(q) && !fromCat.some(c => norm(c.song) === norm(r.song)))
+                          .slice(0, 2).map(r => ({ song: r.song, artist: r.artist }));
+    items = fromCat.concat(fromQueue);
+    if (!items.some(it => norm(it.song) === q)) items.push({ song: inp.value.trim(), artist: "", free: true });
+    box.innerHTML = items.map((it, i) => {
+      const ex = findActive(it.song);
+      const extra = ex ? (ex.status === "tocando" ? ` · <b style="color:var(--accent-2);display:inline">tocando agora</b>`
+                         : ` · <b style="color:var(--gold);display:inline">já na fila, ${ex.votes} votos. Toque para votar</b>`) : "";
+      return it.free && !ex
+        ? `<button type="button" role="option" data-i="${i}"><b>Pedir “${esc(it.song)}”</b><span>Não achou? Envie assim mesmo</span></button>`
+        : `<button type="button" role="option" data-i="${i}"><b>${esc(it.song)}</b><span>${esc(it.artist || "Pedido livre")}${extra}</span></button>`;
+    }).join("");
+    hl = -1; box.hidden = false; inp.setAttribute("aria-expanded", "true");
+    box.querySelectorAll("button").forEach(b => b.addEventListener("mousedown", e => { e.preventDefault(); pick(items[+b.dataset.i]); }));
+  }
+  function pick(it) {
+    draft.query = "";
+    const ex = findActive(it.song);
+    if (ex) { voteFromSearch(ex); return; }
+    draft.song = { song: it.song, artist: it.artist };
+    renderSongSlot(); updateSend();
+  }
+  inp.addEventListener("input", show);
+  inp.addEventListener("focus", show);
+  inp.addEventListener("blur", () => setTimeout(() => { box.hidden = true; }, 150));
+  inp.addEventListener("keydown", e => {
+    if (box.hidden) return;
+    const btns = box.querySelectorAll("button");
+    if (e.key === "ArrowDown") { e.preventDefault(); hl = Math.min(hl + 1, btns.length - 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); hl = Math.max(hl - 1, 0); }
+    else if (e.key === "Enter") { e.preventDefault(); pick(items[hl < 0 ? 0 : hl]); return; }
+    else return;
+    btns.forEach((b, i) => b.classList.toggle("hl", i === hl));
+  });
+}
+
+async function voteFromSearch(r) {
+  if (r.status === "tocando") { renderSongSlot(); toast(`<b>${esc(r.song)}</b> está tocando agora! Aproveita.`); return; }
+  if (myVotes.has(r.id)) { tab = "fila"; render(); toast(`Você já votou em <b>${esc(r.song)}</b>. Ela está com ${r.votes} votos.`); return; }
+  try {
+    const { data, error } = await sb.rpc("toggle_vote", { p_request: r.id });
+    if (error) throw error;
+    myVotes.add(r.id); r.votes = data.votes;
+    tab = "fila"; render();
+    toast(`<b>${esc(r.song)}</b> já estava na fila. Somamos seu voto: agora são ${data.votes}.`);
+  } catch (e) { toast(esc(errMsg(e)), true); }
+}
+
+let sending = false;
+async function submit() {
+  if (!draft.song || sending) return;
+  sending = true;
+  const btn = document.getElementById("send"); btn.disabled = true; btn.textContent = "Enviando…";
+  try {
+    const { data, error } = await sb.rpc("create_request", {
+      p_event: ev.id, p_song: draft.song.song, p_artist: draft.song.artist || "",
+      p_from: profile.name.trim(), p_mesa: profile.mesa || "", p_message: draft.msg.trim(),
+      p_tip: draft.tip, p_ff: draft.ff
+    });
+    if (error) throw error;
+    const song = draft.song.song;
+    draft = { song: null, query: "", msg: "", tip: 0, ff: false };
+    await Promise.all([loadReqs(), loadVotes()]);
+    if (data.action === "created") {
+      if (data.tip > 0) { tab = "meus"; render(); openPix(data.request_id); }
+      else { tab = "meus"; render(); toast(`Pedido enviado! <b>${esc(song)}</b> já está na tela da banda.`); }
+    } else if (data.action === "voted") { tab = "fila"; render(); toast(`<b>${esc(song)}</b> já estava na fila. Somamos seu voto: agora são ${data.votes}.`); }
+    else if (data.action === "already_voted") { tab = "fila"; render(); toast(`Você já votou em <b>${esc(song)}</b>.`); }
+    else if (data.action === "playing") { renderPedir(); toast(`<b>${esc(song)}</b> está tocando agora!`); }
+  } catch (e) {
+    toast(esc(errMsg(e)), true);
+    renderPedir();
+  } finally { sending = false; }
+}
+
+/* ---------- Pix simulado ---------- */
+function openPix(id) {
+  const r = reqs.find(x => x.id === id);
+  if (!r) return;
+  const code = "00020126580014BR.GOV.BCB.PIX0136TESTE-BILHETINHO-" + r.id.slice(0, 8) + "5204000053039865406" + r.tip + ".005802BR";
+  const sheet = document.getElementById("sheet"), card = document.getElementById("sheetCard");
+  card.innerHTML = `
+    <span class="demo-tag">Pix de teste · nenhum pagamento acontece</span>
+    <h3>${r.ff ? "Fura-fila" : "Pix"} para ${esc(ev.bands?.name || "a banda")}</h3>
+    <p class="lead" style="margin:0">Junto com o pedido de <b>${esc(r.song)}</b></p>
+    <div class="qr-box"><div class="amount">${brl(r.tip)},00</div><img alt="QR code de teste" src="${qrDataUrl(code, 4)}"></div>
+    <div class="code"><span>${esc(code)}</span><button type="button" id="copy">Copiar</button></div>
+    <div style="height:14px"></div>
+    <button class="cta" type="button" id="paid">Já paguei (simular confirmação)</button>
+    <button class="ghost" type="button" id="later">Pagar depois</button>`;
+  sheet.hidden = false;
+  document.getElementById("copy").addEventListener("click", async e => {
+    try { await navigator.clipboard.writeText(code); e.target.textContent = "Copiado"; } catch (_) { e.target.textContent = "Não deu"; }
+  });
+  document.getElementById("paid").addEventListener("click", async () => {
+    const { error } = await sb.rpc("simulate_payment", { p_request: r.id });
+    sheet.hidden = true;
+    if (error) return toast(esc(errMsg(error)), true);
+    toast(`Pix de <b>${brl(r.tip)}</b> confirmado. A banda vê seu pedido em destaque.`);
+  });
+  document.getElementById("later").addEventListener("click", () => { sheet.hidden = true; toast("Pedido enviado. O Pix fica pendente em <b>Meus</b>."); });
+}
+
+/* ---------- Fila ---------- */
+function renderFila() {
+  const np = reqs.find(r => r.status === "tocando");
+  const q = reqs.filter(r => r.status === "fila").sort((a, b) => b.votes - a.votes || new Date(a.created_at) - new Date(b.created_at));
+  body().innerHTML = `
+    <h1 class="title">Fila de pedidos</h1>
+    <p class="lead">Vote nas que você também quer ouvir. As mais votadas sobem na tela da banda.</p>
+    ${np ? `<div class="now-mini"><small>Tocando agora</small><b>${esc(np.song)}</b><span class="meta">${esc(np.artist)}</span></div>` : ""}
+    ${q.length ? q.map(r => {
+      const voted = myVotes.has(r.id);
+      return `<div class="q-item">
+        <div class="info"><b>${esc(r.song)}</b><div class="meta">${esc(r.artist || "Pedido livre")} · ${esc(r.from_name)}${r.user_id === me ? " (você)" : ""}</div></div>
+        <button class="vote" type="button" data-vote="${r.id}" aria-pressed="${voted}" aria-label="${voted ? "Tirar voto de" : "Votar em"} ${esc(r.song)}">${voteIcon}${r.votes}</button>
+      </div>`; }).join("") : `<div class="empty">A fila está vazia. Que tal pedir a primeira?</div>`}`;
+  body().querySelectorAll("[data-vote]").forEach(b => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      const { data, error } = await sb.rpc("toggle_vote", { p_request: b.dataset.vote });
+      if (error) throw error;
+      const r = reqs.find(x => x.id === b.dataset.vote);
+      if (r) r.votes = data.votes;
+      if (data.voted) myVotes.add(b.dataset.vote); else myVotes.delete(b.dataset.vote);
+      renderFila();
+    } catch (e) { toast(esc(errMsg(e)), true); b.disabled = false; }
+  }));
+}
+
+/* ---------- Meus ---------- */
+function renderMeus() {
+  const mine = reqs.filter(r => r.user_id === me).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  body().innerHTML = `
+    <h1 class="title">Meus pedidos</h1>
+    <p class="lead">Você é avisado aqui quando a banda responder. Deixe esta página aberta.</p>
+    ${mine.length ? mine.map(r => `
+      <div class="q-item">
+        <div class="info"><b>${esc(r.song)}</b><div class="meta">${esc(r.artist || "Pedido livre")} · ${ago(r.created_at)}</div>
+          ${r.message ? `<div class="meta" style="margin-top:4px">“${esc(r.message)}”</div>` : ""}
+          <div class="tags">
+            <span class="pill ${r.status}">${STATUS_TXT[r.status]}</span>
+            ${r.tip ? `<span class="pill ${r.ff && r.tip_status === "paid" ? "ff" : "pix"}">${r.ff ? "Fura-fila" : "Pix"} ${brl(r.tip)} ${r.tip_status === "paid" ? "pago" : "pendente"}</span>` : ""}
+          </div>
+        </div>
+        ${r.tip && r.tip_status === "pending" && r.status === "fila" ? `<button class="btn" type="button" data-pay="${r.id}">Pagar</button>` : ""}
+      </div>`).join("") : `<div class="empty">Você ainda não pediu nenhuma música.</div><button class="cta" type="button" id="goPedir">Pedir uma música</button>`}`;
+  body().querySelectorAll("[data-pay]").forEach(b => b.addEventListener("click", () => openPix(b.dataset.pay)));
+  document.getElementById("goPedir")?.addEventListener("click", () => { tab = "pedir"; render(); });
+}
+</script>
+</body>
+</html>
