@@ -249,7 +249,7 @@ function renderPedir() {
       <div class="hint r" id="msgCount">${draft.msg.length}/80</div>
     </div>
     <div class="field">
-      <span class="lbl" id="tipLbl">Pix para a banda (opcional)</span>
+      <span class="lbl" id="tipLbl">Pix para a banda / DJ (opcional)</span>
       <div class="rule-banner">${ruleText()}</div>
       <div class="tips" role="group" aria-labelledby="tipLbl">
         ${tipOptions().map(o => `<button type="button" data-tip="${o.v}" data-ff="${o.ff ? 1 : 0}" aria-pressed="${draft.tip === o.v && draft.ff === !!o.ff}" ${o.off ? "disabled" : ""}>${o.label}${o.sub ? `<small>${o.sub}</small>` : ""}</button>`).join("")}
