@@ -76,7 +76,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)
 <div id="root"><div class="center"><div class="spinner" aria-label="Carregando"></div></div></div>
 
 <script type="module">
-import { sb, configured, ensureSession, esc, brl, ago, fmtDay, MODE_NAME, STATUS_TXT, errMsg, qrDataUrl,
+import { sb, configured, ensureSession, esc, brl, money, pixSplit, ago, fmtDay, MODE_NAME, STATUS_TXT, errMsg, qrDataUrl,
          toast, store, notConfigured, sortQueue } from "/assets/common.js";
 
 const root = document.getElementById("root");
@@ -150,7 +150,7 @@ async function startStage(event) {
       <div class="stats">
         <div class="stat"><b id="stQueue">0</b><span>Na fila</span></div>
         <div class="stat"><b id="stPlayed">0</b><span>Tocadas</span></div>
-        <div class="stat gold"><b id="stTips">R$ 0</b><span>Pix da noite</span></div>
+        <div class="stat gold"><b id="stTips">R$ 0</b><span>Pix para a banda</span></div>
       </div>
     </header>
     <div class="t-tools">
@@ -243,7 +243,8 @@ function renderStage() {
   const done = reqs.filter(r => r.status === "tocada" || r.status === "nao").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   document.getElementById("stQueue").textContent = q.length;
   document.getElementById("stPlayed").textContent = reqs.filter(r => r.status === "tocada").length;
-  document.getElementById("stTips").textContent = brl(reqs.filter(r => r.tip_status === "paid").reduce((s, r) => s + r.tip, 0));
+  // O que a banda recebe: Pix comum inteiro; fura-fila menos a comissão do app.
+  document.getElementById("stTips").textContent = money(reqs.filter(r => r.tip_status === "paid").reduce((s, r) => s + pixSplit(r.tip, r.ff).banda, 0));
   document.getElementById("curRule").innerHTML = "Regra atual: <b>" + MODE_NAME[ev.pix_mode] + (ev.pix_mode === "furafila" ? " · " + brl(ev.ff_price) + " · " + ev.ff_limit + "/hora" : "") + "</b>";
   const isFF = r => r.ff && r.tip_status === "paid";
 

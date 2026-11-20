@@ -17,6 +17,18 @@ export async function ensureSession() {
 export const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const norm = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 export const brl = n => "R$ " + Number(n || 0).toLocaleString("pt-BR");
+// Valor com centavos: R$ 5,50.
+export const money = n => "R$ " + Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Modelo de receita decidido em 19/11/2026 (Pix ainda simulado):
+// gorjeta, destaque e prioridade: a plateia paga o Pix + taxa de serviço e a banda recebe 100%;
+// fura-fila: o preço é o da banda e o app fica com uma comissão sobre ele.
+export const SERVICE_FEE = 0.10;
+export const FF_COMMISSION = 0.20;
+// Quanto a pessoa paga e quanto a banda recebe por um Pix.
+export const pixSplit = (tip, ff) => ff
+  ? { paga: tip, banda: tip * (1 - FF_COMMISSION) }
+  : { paga: tip * (1 + SERVICE_FEE), banda: tip };
 export const ago = t => { const m = Math.round((Date.now() - new Date(t)) / 60000); return m < 1 ? "agora" : m < 60 ? "há " + m + " min" : "há " + Math.floor(m / 60) + " h"; };
 export const fmtDay = d => new Date(d).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
 export const fmtTime = d => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });

@@ -18,14 +18,17 @@
 
 <script type="module">
 import { sb, configured, ensureSession, esc, norm, brl, ago, fmtDay, fmtTime, MODE_NAME, STATUS_TXT,
-         eventWindow, errMsg, qrDataUrl, toast, store, notConfigured, voteIcon, CATALOG } from "/assets/common.js";
+         eventWindow, errMsg, qrDataUrl, toast, store, notConfigured, voteIcon, CATALOG,
+         money, pixSplit, SERVICE_FEE, FF_COMMISSION } from "/assets/common.js";
 
 const app = document.getElementById("app");
 const slug = (location.pathname.match(/\/e\/([^/?#]+)/) || [])[1] || new URLSearchParams(location.search).get("s");
 
 let ev = null, me = null, reqs = [], myVotes = new Set(), tab = "pedir";
 let draft = { song: null, query: "", msg: "", tip: 0, ff: false };
-const profile = store("perfil") || { name: "", mesa: "" };
+// O nome fica guardado no aparelho entre eventos; a mesa é perguntada em cada evento.
+const profile = { name: (store("perfil") || {}).name || "", mesa: "" };
+let needsProfile = false;
 
 function fatal(msg) {
   app.innerHTML = `<div class="center"><a class="logo" href="/">Bilhetinho</a><p>${msg}</p></div>`;
@@ -41,6 +44,8 @@ async function init() {
   const { data, error } = await sb.from("events").select("*, bands(name)").eq("slug", decodeURIComponent(slug)).maybeSingle();
   if (error || !data) return fatal("Evento não encontrado. Confira o QR code.");
   ev = data;
+  profile.mesa = store("mesa_" + ev.id) || "";
+  needsProfile = eventWindow(ev) !== "depois" && (!profile.name.trim() || !store("entrou_" + ev.id));
 
   app.innerHTML = `
     <header class="head">
@@ -110,6 +115,7 @@ function onReqChange(p) {
 
 // Atualiza a aba aberta sem apagar o que a pessoa está digitando.
 function refresh() {
+  if (needsProfile) return;
   updateCount();
   if (tab === "fila") renderFila();
   else if (tab === "meus") renderMeus();
@@ -122,6 +128,9 @@ function updateCount() {
 }
 
 function render() {
+  const nav = document.querySelector(".nav");
+  if (needsProfile) { nav.hidden = true; renderPerfil(false); return; }
+  nav.hidden = false;
   document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
   updateCount();
   if (tab === "pedir") renderPedir(); else if (tab === "fila") renderFila(); else renderMeus();
@@ -130,6 +139,38 @@ function render() {
 
 const body = () => document.getElementById("body");
 const findActive = song => reqs.find(r => norm(r.song) === norm(song) && (r.status === "fila" || r.status === "tocando"));
+
+/* ---------- Primeiro uso: nome e mesa ---------- */
+function renderPerfil(changing) {
+  body().innerHTML = `
+    <h1 class="title">${changing ? "Trocar nome ou mesa" : "Como você quer aparecer para a banda?"}</h1>
+    <p class="lead">${changing ? "Vale para os próximos pedidos." : "É só desta vez. Nos próximos pedidos você não precisa digitar de novo."}</p>
+    <form id="perfilForm" novalidate>
+      <div class="row2">
+        <div class="field"><label for="pName">Seu nome</label><input class="inp" id="pName" maxlength="30" autocomplete="given-name" value="${esc(profile.name)}" required></div>
+        <div class="field"><label for="pMesa">Mesa</label><input class="inp" id="pMesa" maxlength="6" inputmode="numeric" placeholder="opcional" value="${esc(profile.mesa)}"></div>
+      </div>
+      <button class="cta" type="submit">${changing ? "Salvar" : "Entrar na festa"}</button>
+      ${changing ? `<button class="ghost" type="button" id="pCancel">Cancelar</button>` : ""}
+    </form>`;
+  const nameInp = document.getElementById("pName");
+  if (!profile.name) nameInp.focus();
+  document.getElementById("pMesa").addEventListener("input", e => { e.target.value = e.target.value.replace(/[^0-9a-zA-Z]/g, ""); });
+  document.getElementById("pCancel")?.addEventListener("click", () => render());
+  document.getElementById("perfilForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = nameInp.value.trim();
+    if (!name) { toast("Digite seu nome para a banda saber de quem é o pedido.", true); nameInp.focus(); return; }
+    profile.name = name;
+    profile.mesa = document.getElementById("pMesa").value.trim();
+    store("perfil", { name: profile.name });
+    store("mesa_" + ev.id, profile.mesa);
+    store("entrou_" + ev.id, true);
+    needsProfile = false;
+    tab = "pedir"; render();
+  });
+  window.scrollTo(0, 0);
+}
 
 /* ---------- Pedir ---------- */
 function ffUsedThisHour() {
@@ -149,18 +190,33 @@ function tipOptions() {
           { v: ev.ff_price, label: "R$ " + ev.ff_price, sub: full ? "esgotado" : "fura-fila", ff: true, off: full }];
 }
 function sendLabel() {
-  if (draft.ff) return `Pedir com fura-fila (${brl(draft.tip)})`;
-  return draft.tip ? `Enviar pedido + Pix de ${brl(draft.tip)}` : "Enviar pedido";
+  if (!draft.tip) return "Enviar pedido";
+  const { paga } = pixSplit(draft.tip, draft.ff);
+  return draft.ff ? `Pedir com fura-fila (${money(paga)})` : `Enviar pedido + Pix (${money(paga)})`;
+}
+// Linha que explica para onde vai o dinheiro do Pix escolhido.
+function pixSummary() {
+  if (!draft.tip) return "";
+  const { paga, banda } = pixSplit(draft.tip, draft.ff);
+  return draft.ff
+    ? `Você paga <b>${money(paga)}</b>. A banda recebe ${money(banda)}.`
+    : `Você paga <b>${money(paga)}</b>: ${money(banda)} para a banda + ${money(paga - banda)} de taxa de serviço (${Math.round(SERVICE_FEE * 100)}%).`;
 }
 
 function renderPedir() {
   const w = eventWindow(ev);
-  const closed = w !== "aberto";
+  if (w !== "aberto") {
+    body().innerHTML = `
+      <div class="center" style="min-height:55vh">
+        <h1 class="title">${w === "antes" ? "Os pedidos ainda não abriram" : "Este evento terminou"}</h1>
+        <p>${w === "antes" ? `Os pedidos abrem em ${fmtDay(ev.starts_at)}, às ${fmtTime(new Date(new Date(ev.starts_at).getTime() - 3 * 3600e3))}. Volte por este mesmo QR code.` : `Obrigado por participar da ${esc(ev.name)}! Seus pedidos continuam na aba <b>Meus</b>.`}</p>
+      </div>`;
+    return;
+  }
   if (draft.ff && ev.pix_mode !== "furafila") { draft.ff = false; draft.tip = 0; }
   body().innerHTML = `
     <h1 class="title">Pedir uma música</h1>
-    <p class="lead">Seu pedido aparece na tela da banda, sem bilhetinho perdido.</p>
-    ${closed ? `<div class="notice">${w === "antes" ? `Os pedidos abrem em ${fmtDay(ev.starts_at)}, às ${fmtTime(ev.starts_at)}.` : "Este evento já terminou. Obrigado por participar!"}</div>` : ""}
+    <div class="me-line">Pedindo como <b>${esc(profile.name)}</b>${profile.mesa ? " · mesa " + esc(profile.mesa) : ""} · <button type="button" id="chgMe">Trocar</button></div>
     <div class="field">
       <label for="fSong">Música</label>
       <div id="songSlot"></div>
@@ -170,24 +226,20 @@ function renderPedir() {
       <input class="inp" id="fMsg" maxlength="80" placeholder="Ex.: Pra turma de 1989, mesa 4" value="${esc(draft.msg)}">
       <div class="hint r" id="msgCount">${draft.msg.length}/80</div>
     </div>
-    <div class="row2">
-      <div class="field"><label for="fName">Seu nome</label><input class="inp" id="fName" maxlength="30" autocomplete="given-name" value="${esc(profile.name)}"></div>
-      <div class="field"><label for="fMesa">Mesa</label><input class="inp" id="fMesa" maxlength="6" inputmode="numeric" value="${esc(profile.mesa)}"></div>
-    </div>
     <div class="field">
       <span class="lbl" id="tipLbl">Pix para a banda (opcional)</span>
       <div class="rule-banner">${ruleText()}</div>
       <div class="tips" role="group" aria-labelledby="tipLbl">
         ${tipOptions().map(o => `<button type="button" data-tip="${o.v}" data-ff="${o.ff ? 1 : 0}" aria-pressed="${draft.tip === o.v && draft.ff === !!o.ff}" ${o.off ? "disabled" : ""}>${o.label}${o.sub ? `<small>${o.sub}</small>` : ""}</button>`).join("")}
       </div>
+      <div class="hint" id="pixSum" style="margin-top:8px;font-size:13px">${pixSummary()}</div>
     </div>
     <button class="cta" id="send" type="button" disabled>${sendLabel()}</button>
     <p class="hint" style="text-align:center;margin-top:12px">Pix em modo de teste: nenhum pagamento de verdade acontece.</p>`;
   renderSongSlot();
   const fMsg = document.getElementById("fMsg");
   fMsg.addEventListener("input", () => { draft.msg = fMsg.value; document.getElementById("msgCount").textContent = fMsg.value.length + "/80"; });
-  document.getElementById("fName").addEventListener("input", e => { profile.name = e.target.value; store("perfil", profile); updateSend(); });
-  document.getElementById("fMesa").addEventListener("input", e => { profile.mesa = e.target.value.replace(/[^0-9a-zA-Z]/g, ""); e.target.value = profile.mesa; store("perfil", profile); });
+  document.getElementById("chgMe").addEventListener("click", () => { document.querySelector(".nav").hidden = true; renderPerfil(true); });
   body().querySelectorAll("[data-tip]").forEach(b => b.addEventListener("click", () => {
     draft.tip = +b.dataset.tip; draft.ff = b.dataset.ff === "1";
     body().querySelectorAll("[data-tip]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.tip === draft.tip && (x.dataset.ff === "1") === draft.ff)));
@@ -201,6 +253,8 @@ function updateSend() {
   if (!b) return;
   b.disabled = !draft.song || !profile.name.trim() || eventWindow(ev) !== "aberto";
   b.textContent = sendLabel();
+  const sum = document.getElementById("pixSum");
+  if (sum) sum.innerHTML = pixSummary();
 }
 
 function renderSongSlot() {
@@ -303,7 +357,8 @@ function openPix(id) {
     <span class="demo-tag">Pix de teste · nenhum pagamento acontece</span>
     <h3>${r.ff ? "Fura-fila" : "Pix"} para ${esc(ev.bands?.name || "a banda")}</h3>
     <p class="lead" style="margin:0">Junto com o pedido de <b>${esc(r.song)}</b></p>
-    <div class="qr-box"><div class="amount">${brl(r.tip)},00</div><img alt="QR code de teste" src="${qrDataUrl(code, 4)}"></div>
+    <div class="qr-box"><div class="amount">${money(pixSplit(r.tip, r.ff).paga)}</div>
+      <div class="hint">${r.ff ? `A banda recebe ${money(pixSplit(r.tip, true).banda)}` : `${money(r.tip)} para a banda + ${money(pixSplit(r.tip, false).paga - r.tip)} de taxa de serviço`}</div><img alt="QR code de teste" src="${qrDataUrl(code, 4)}"></div>
     <div class="code"><span>${esc(code)}</span><button type="button" id="copy">Copiar</button></div>
     <div style="height:14px"></div>
     <button class="cta" type="button" id="paid">Já paguei (simular confirmação)</button>
@@ -316,7 +371,7 @@ function openPix(id) {
     const { error } = await sb.rpc("simulate_payment", { p_request: r.id });
     sheet.hidden = true;
     if (error) return toast(esc(errMsg(error)), true);
-    toast(`Pix de <b>${brl(r.tip)}</b> confirmado. A banda vê seu pedido em destaque.`);
+    toast(`Pix de <b>${money(pixSplit(r.tip, r.ff).paga)}</b> confirmado. A banda vê seu pedido em destaque.`);
   });
   document.getElementById("later").addEventListener("click", () => { sheet.hidden = true; toast("Pedido enviado. O Pix fica pendente em <b>Meus</b>."); });
 }

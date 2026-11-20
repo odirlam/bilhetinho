@@ -128,3 +128,8 @@ h1.title,h2.title{font-size:21px;margin:0 0 4px;text-wrap:balance}
 .center p{color:var(--muted);max-width:40ch;margin:0}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* Linha "Pedindo como …" no topo do formulário */
+.me-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:14px;color:var(--muted);margin:2px 0 18px}
+.me-line b{color:var(--text)}
+.me-line button{background:none;border:0;padding:0;color:var(--accent-2);font-weight:700;font-size:14px}
