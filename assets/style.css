@@ -140,7 +140,7 @@ h1.title,h2.title{font-size:21px;margin:0 0 4px;text-wrap:balance}
 .heart-core{position:relative;display:grid;place-items:center;width:58px;height:58px;margin-top:-22px;border-radius:50%;
   background:radial-gradient(circle at 35% 30%,#ff6b85,var(--heart) 60%,#d81f45);color:#fff;
   box-shadow:0 0 0 4px var(--surface),0 6px 22px rgba(255,59,92,.55)}
-.heart-core svg{width:36px;height:36px;animation:heartbeat 1.6s ease-in-out infinite}
+.nav button.nav-heart .heart-core svg,.heart-core svg{width:29px;height:29px;animation:heartbeat 1.6s ease-in-out infinite}
 .heart-core::before,.heart-core::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--heart);
   opacity:0;animation:heartwave 1.6s ease-out infinite}
 .heart-core::after{animation-delay:.8s}
