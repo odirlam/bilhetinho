@@ -31,7 +31,7 @@ a{color:var(--accent-2)}
 .badge-off{color:var(--gold);font-weight:700}
 .body{flex:1;padding:16px 16px 100px}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:15;display:flex;justify-content:center;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.nav-in{display:grid;grid-template-columns:repeat(3,1fr);width:100%;max-width:560px}
+.nav-in{display:grid;grid-template-columns:repeat(5,1fr);width:100%;max-width:560px;align-items:end}
 .nav button{background:none;border:0;padding:10px 4px 12px;font-size:12px;font-weight:700;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
 .nav button svg{width:22px;height:22px}
 .nav button[aria-selected="true"]{color:var(--accent)}
@@ -133,3 +133,23 @@ h1.title,h2.title{font-size:21px;margin:0 0 4px;text-wrap:balance}
 .me-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:14px;color:var(--muted);margin:2px 0 18px}
 .me-line b{color:var(--text)}
 .me-line button{background:none;border:0;padding:0;color:var(--accent-2);font-weight:700;font-size:14px}
+
+/* Coração pulsando no centro do menu (prévia da fase 2) */
+:root{--heart:#FF3B5C}
+.nav button.nav-heart{padding:0 0 10px;overflow:visible}
+.heart-core{position:relative;display:grid;place-items:center;width:58px;height:58px;margin-top:-22px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#ff6b85,var(--heart) 60%,#d81f45);color:#fff;
+  box-shadow:0 0 0 4px var(--surface),0 6px 22px rgba(255,59,92,.55)}
+.heart-core svg{width:28px;height:28px;animation:heartbeat 1.6s ease-in-out infinite}
+.heart-core::before,.heart-core::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--heart);
+  opacity:0;animation:heartwave 1.6s ease-out infinite}
+.heart-core::after{animation-delay:.8s}
+.nav-heart[aria-selected="true"] .heart-core{box-shadow:0 0 0 4px var(--surface),0 0 0 7px rgba(255,59,92,.45),0 6px 22px rgba(255,59,92,.6)}
+@keyframes heartbeat{0%,100%{transform:scale(1)}15%{transform:scale(1.18)}30%{transform:scale(1)}45%{transform:scale(1.12)}60%{transform:scale(1)}}
+@keyframes heartwave{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.75);opacity:0}}
+.heart-core.big{width:88px;height:88px;margin:8px auto 14px;box-shadow:0 8px 30px rgba(255,59,92,.5)}
+.heart-core.big svg{width:42px;height:42px}
+.soon-hero{text-align:center;padding-top:10px}
+.soon-list{list-style:none;padding:0;margin:8px 0 18px;display:grid;gap:8px}
+.soon-list li{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 14px;font-size:14px;color:var(--muted)}
+.soon-list li b{color:var(--text)}

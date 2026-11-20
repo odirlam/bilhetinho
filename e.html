@@ -56,7 +56,9 @@ async function init() {
     <nav class="nav" aria-label="Menu"><div class="nav-in" role="tablist">
       <button role="tab" data-tab="pedir" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Pedir</button>
       <button role="tab" data-tab="fila" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Fila</button>
+      <button role="tab" data-tab="coracao" type="button" class="nav-heart" aria-label="Em breve: conhecer quem está na festa"><span class="heart-core"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.4 2.5.2.3.6.3.8 0 .8-1.3 2.3-2.5 4.4-2.5 3.7 0 5.8 3.8 4.3 7.2C18.6 16.4 12 21 12 21z"/></svg></span></button>
       <button role="tab" data-tab="meus" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H7l-3 4z"/></svg>Meus<span class="count" id="myCount" hidden></span></button>
+      <button role="tab" data-tab="voce" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>Você</button>
     </div></nav>
     <div class="sheet" id="sheet" hidden><div class="sheet-card" id="sheetCard"></div></div>`;
   document.querySelectorAll(".nav button").forEach(b => b.addEventListener("click", () => { tab = b.dataset.tab; render(); }));
@@ -133,7 +135,8 @@ function render() {
   nav.hidden = false;
   document.querySelectorAll(".nav button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
   updateCount();
-  if (tab === "pedir") renderPedir(); else if (tab === "fila") renderFila(); else renderMeus();
+  if (tab === "pedir") renderPedir(); else if (tab === "fila") renderFila();
+  else if (tab === "coracao") renderCoracao(); else if (tab === "voce") renderPerfil(true, true); else renderMeus();
   window.scrollTo(0, 0);
 }
 
@@ -141,7 +144,7 @@ const body = () => document.getElementById("body");
 const findActive = song => reqs.find(r => norm(r.song) === norm(song) && (r.status === "fila" || r.status === "tocando"));
 
 /* ---------- Primeiro uso: nome e mesa ---------- */
-function renderPerfil(changing) {
+function renderPerfil(changing, inTab = false) {
   body().innerHTML = `
     <h1 class="title">${changing ? "Trocar nome ou mesa" : "Como você quer aparecer para a banda?"}</h1>
     <p class="lead">${changing ? "Vale para os próximos pedidos." : "É só desta vez. Nos próximos pedidos você não precisa digitar de novo."}</p>
@@ -151,7 +154,7 @@ function renderPerfil(changing) {
         <div class="field"><label for="pMesa">Mesa</label><input class="inp" id="pMesa" maxlength="6" inputmode="numeric" placeholder="opcional" value="${esc(profile.mesa)}"></div>
       </div>
       <button class="cta" type="submit">${changing ? "Salvar" : "Entrar na festa"}</button>
-      ${changing ? `<button class="ghost" type="button" id="pCancel">Cancelar</button>` : ""}
+      ${changing && !inTab ? `<button class="ghost" type="button" id="pCancel">Cancelar</button>` : ""}
     </form>`;
   const nameInp = document.getElementById("pName");
   if (!profile.name) nameInp.focus();
@@ -170,6 +173,25 @@ function renderPerfil(changing) {
     tab = "pedir"; render();
   });
   window.scrollTo(0, 0);
+}
+
+/* ---------- Coração: prévia da fase 2 ---------- */
+function renderCoracao() {
+  body().innerHTML = `
+    <div class="soon-hero">
+      <span class="heart-core big" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.4 2.5.2.3.6.3.8 0 .8-1.3 2.3-2.5 4.4-2.5 3.7 0 5.8 3.8 4.3 7.2C18.6 16.4 12 21 12 21z"/></svg></span>
+      <h1 class="title">Em breve: conheça quem está na festa</h1>
+      <p class="lead">Um jeito leve de puxar papo com quem está aqui, agora.</p>
+    </div>
+    <ul class="soon-list">
+      <li><b>Match só quando os dois querem.</b> Ninguém recebe mensagem de quem não aceitou.</li>
+      <li><b>Convite para um drink.</b> Se o outro topar, vocês se encontram no bar.</li>
+      <li><b>Flores digitais</b> para mandar um carinho, para alguém ou para a banda.</li>
+      <li><b>Some quando a festa acaba.</b> Seu perfil vale só para esta noite.</li>
+    </ul>
+    <p class="hint" style="text-align:center">Por enquanto, aproveite para pedir a sua música.</p>
+    <button class="cta" type="button" id="goPedir2">Pedir uma música</button>`;
+  document.getElementById("goPedir2").addEventListener("click", () => { tab = "pedir"; render(); });
 }
 
 /* ---------- Pedir ---------- */
@@ -239,7 +261,7 @@ function renderPedir() {
   renderSongSlot();
   const fMsg = document.getElementById("fMsg");
   fMsg.addEventListener("input", () => { draft.msg = fMsg.value; document.getElementById("msgCount").textContent = fMsg.value.length + "/80"; });
-  document.getElementById("chgMe").addEventListener("click", () => { document.querySelector(".nav").hidden = true; renderPerfil(true); });
+  document.getElementById("chgMe").addEventListener("click", () => { tab = "voce"; render(); });
   body().querySelectorAll("[data-tip]").forEach(b => b.addEventListener("click", () => {
     draft.tip = +b.dataset.tip; draft.ff = b.dataset.ff === "1";
     body().querySelectorAll("[data-tip]").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.tip === draft.tip && (x.dataset.ff === "1") === draft.ff)));
