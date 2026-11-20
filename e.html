@@ -74,7 +74,7 @@ async function init() {
       ev = { ...ev, ...p.new };
       header();
       if (tab === "pedir") renderPedir();
-      if (old !== ev.pix_mode) toast(`A banda mudou a regra do Pix: <b>${MODE_NAME[ev.pix_mode]}</b>.`);
+      if (old !== ev.pix_mode) toast(`${artist()} mudou a regra do Pix: <b>${MODE_NAME[ev.pix_mode]}</b>.`);
     })
     .subscribe();
   // Ao voltar para o app (tela bloqueada etc.), recarrega a fila.
@@ -107,8 +107,8 @@ function onReqChange(p) {
     if (i >= 0) reqs[i] = p.new; else reqs.push(p.new);
     if (p.new.user_id === me && before && before.status !== p.new.status) {
       const s = p.new.song;
-      if (p.new.status === "tocando") toast(`A banda vai tocar <b>${esc(s)}</b> agora!`);
-      else if (p.new.status === "nao") toast(`A banda não tem <b>${esc(s)}</b> no repertório hoje. Que tal pedir outra?`);
+      if (p.new.status === "tocando") toast(`${artist()} vai tocar <b>${esc(s)}</b> agora!`);
+      else if (p.new.status === "nao") toast(`${artist()} não tem <b>${esc(s)}</b> no repertório hoje. Que tal pedir outra?`);
       else if (p.new.status === "tocada") toast(`<b>${esc(s)}</b> foi tocada. Valeu pelo pedido!`);
     }
   } else if (p.eventType === "DELETE") { reqs = reqs.filter(r => r.id !== p.old.id); }
@@ -141,12 +141,14 @@ function render() {
 }
 
 const body = () => document.getElementById("body");
+// Nome da banda ou do DJ, como o público conhece.
+const artist = () => esc(ev?.bands?.name || "o artista");
 const findActive = song => reqs.find(r => norm(r.song) === norm(song) && (r.status === "fila" || r.status === "tocando"));
 
 /* ---------- Primeiro uso: nome e mesa ---------- */
 function renderPerfil(changing, inTab = false) {
   body().innerHTML = `
-    <h1 class="title">${changing ? "Trocar nome ou mesa" : "Como você quer aparecer para a banda?"}</h1>
+    <h1 class="title">${changing ? "Trocar nome ou mesa" : `Como você quer aparecer para ${artist()}?`}</h1>
     <p class="lead">${changing ? "Vale para os próximos pedidos." : "É só desta vez. Nos próximos pedidos você não precisa digitar de novo."}</p>
     <form id="perfilForm" novalidate>
       <div class="row2">
@@ -163,7 +165,7 @@ function renderPerfil(changing, inTab = false) {
   document.getElementById("perfilForm").addEventListener("submit", e => {
     e.preventDefault();
     const name = nameInp.value.trim();
-    if (!name) { toast("Digite seu nome para a banda saber de quem é o pedido.", true); nameInp.focus(); return; }
+    if (!name) { toast(`Digite seu nome para ${artist()} saber de quem é o pedido.`, true); nameInp.focus(); return; }
     profile.name = name;
     profile.mesa = document.getElementById("pMesa").value.trim();
     store("perfil", { name: profile.name });
@@ -186,7 +188,7 @@ function renderCoracao() {
     <ul class="soon-list">
       <li><b>Match só quando os dois querem.</b> Ninguém recebe mensagem de quem não aceitou.</li>
       <li><b>Convite para um drink.</b> Se o outro topar, vocês se encontram no bar.</li>
-      <li><b>Flores digitais</b> para mandar um carinho, para alguém ou para a banda.</li>
+      <li><b>Flores digitais</b> para mandar um carinho, para alguém ou para ${artist()}.</li>
       <li><b>Some quando a festa acaba.</b> Seu perfil vale só para esta noite.</li>
     </ul>
     <p class="hint" style="text-align:center">Por enquanto, aproveite para pedir a sua música.</p>
@@ -200,10 +202,10 @@ function ffUsedThisHour() {
   return reqs.filter(r => r.ff && r.tip_status !== "none" && new Date(r.created_at) > h).length;
 }
 function ruleText() {
-  if (ev.pix_mode === "destaque") return `<b>Regra da banda:</b> o Pix vai direto para a banda e destaca seu pedido na tela. A ordem continua pelos votos.`;
-  if (ev.pix_mode === "prioridade") return `<b>Regra da banda:</b> pedidos com Pix ganham uma pequena prioridade na fila (valem 2 votos a mais). A banda decide o que toca.`;
+  if (ev.pix_mode === "destaque") return `<b>${artist()}:</b> o Pix vai direto para o artista e destaca seu pedido na tela. A ordem continua pelos votos.`;
+  if (ev.pix_mode === "prioridade") return `<b>${artist()}:</b> pedidos com Pix ganham uma pequena prioridade na fila (valem 2 votos a mais). Quem decide o que toca é o artista.`;
   const left = Math.max(0, ev.ff_limit - ffUsedThisHour());
-  return `<b>Regra da banda:</b> o fura-fila custa ${brl(ev.ff_price)} e coloca seu pedido no topo. Limite de ${ev.ff_limit} por hora: ${left ? (left === 1 ? "resta 1" : "restam " + left) : "esgotado nesta hora"}.`;
+  return `<b>${artist()}:</b> o fura-fila custa ${brl(ev.ff_price)} e coloca seu pedido no topo. Limite de ${ev.ff_limit} por hora: ${left ? (left === 1 ? "resta 1" : "restam " + left) : "esgotado nesta hora"}.`;
 }
 function tipOptions() {
   if (ev.pix_mode !== "furafila") return [0, 5, 10, 20].map(v => ({ v, label: v ? "R$ " + v : "Sem Pix" }));
@@ -221,8 +223,8 @@ function pixSummary() {
   if (!draft.tip) return "";
   const { paga, banda } = pixSplit(draft.tip, draft.ff);
   return draft.ff
-    ? `Você paga <b>${money(paga)}</b>. A banda recebe ${money(banda)}.`
-    : `Você paga <b>${money(paga)}</b>: ${money(banda)} para a banda + ${money(paga - banda)} de taxa de serviço (${Math.round(SERVICE_FEE * 100)}%).`;
+    ? `Você paga <b>${money(paga)}</b>. ${artist()} recebe ${money(banda)}.`
+    : `Você paga <b>${money(paga)}</b>: ${money(banda)} para ${artist()} + ${money(paga - banda)} de taxa de serviço (${Math.round(SERVICE_FEE * 100)}%).`;
 }
 
 function renderPedir() {
@@ -249,7 +251,7 @@ function renderPedir() {
       <div class="hint r" id="msgCount">${draft.msg.length}/80</div>
     </div>
     <div class="field">
-      <span class="lbl" id="tipLbl">Pix para a banda / DJ (opcional)</span>
+      <span class="lbl" id="tipLbl">Pix para ${artist()} (opcional)</span>
       <div class="rule-banner">${ruleText()}</div>
       <div class="tips" role="group" aria-labelledby="tipLbl">
         ${tipOptions().map(o => `<button type="button" data-tip="${o.v}" data-ff="${o.ff ? 1 : 0}" aria-pressed="${draft.tip === o.v && draft.ff === !!o.ff}" ${o.off ? "disabled" : ""}>${o.label}${o.sub ? `<small>${o.sub}</small>` : ""}</button>`).join("")}
@@ -359,7 +361,7 @@ async function submit() {
     await Promise.all([loadReqs(), loadVotes()]);
     if (data.action === "created") {
       if (data.tip > 0) { tab = "meus"; render(); openPix(data.request_id); }
-      else { tab = "meus"; render(); toast(`Pedido enviado! <b>${esc(song)}</b> já está na tela da banda.`); }
+      else { tab = "meus"; render(); toast(`Pedido enviado! <b>${esc(song)}</b> já chegou para ${artist()}.`); }
     } else if (data.action === "voted") { tab = "fila"; render(); toast(`<b>${esc(song)}</b> já estava na fila. Somamos seu voto: agora são ${data.votes}.`); }
     else if (data.action === "already_voted") { tab = "fila"; render(); toast(`Você já votou em <b>${esc(song)}</b>.`); }
     else if (data.action === "playing") { renderPedir(); toast(`<b>${esc(song)}</b> está tocando agora!`); }
@@ -377,10 +379,10 @@ function openPix(id) {
   const sheet = document.getElementById("sheet"), card = document.getElementById("sheetCard");
   card.innerHTML = `
     <span class="demo-tag">Pix de teste · nenhum pagamento acontece</span>
-    <h3>${r.ff ? "Fura-fila" : "Pix"} para ${esc(ev.bands?.name || "a banda")}</h3>
+    <h3>${r.ff ? "Fura-fila" : "Pix"} para ${artist()}</h3>
     <p class="lead" style="margin:0">Junto com o pedido de <b>${esc(r.song)}</b></p>
     <div class="qr-box"><div class="amount">${money(pixSplit(r.tip, r.ff).paga)}</div>
-      <div class="hint">${r.ff ? `A banda recebe ${money(pixSplit(r.tip, true).banda)}` : `${money(r.tip)} para a banda + ${money(pixSplit(r.tip, false).paga - r.tip)} de taxa de serviço`}</div><img alt="QR code de teste" src="${qrDataUrl(code, 4)}"></div>
+      <div class="hint">${r.ff ? `${artist()} recebe ${money(pixSplit(r.tip, true).banda)}` : `${money(r.tip)} para ${artist()} + ${money(pixSplit(r.tip, false).paga - r.tip)} de taxa de serviço`}</div><img alt="QR code de teste" src="${qrDataUrl(code, 4)}"></div>
     <div class="code"><span>${esc(code)}</span><button type="button" id="copy">Copiar</button></div>
     <div style="height:14px"></div>
     <button class="cta" type="button" id="paid">Já paguei (simular confirmação)</button>
@@ -393,7 +395,7 @@ function openPix(id) {
     const { error } = await sb.rpc("simulate_payment", { p_request: r.id });
     sheet.hidden = true;
     if (error) return toast(esc(errMsg(error)), true);
-    toast(`Pix de <b>${money(pixSplit(r.tip, r.ff).paga)}</b> confirmado. A banda vê seu pedido em destaque.`);
+    toast(`Pix de <b>${money(pixSplit(r.tip, r.ff).paga)}</b> confirmado. ${artist()} vê seu pedido em destaque.`);
   });
   document.getElementById("later").addEventListener("click", () => { sheet.hidden = true; toast("Pedido enviado. O Pix fica pendente em <b>Meus</b>."); });
 }
@@ -404,7 +406,7 @@ function renderFila() {
   const q = reqs.filter(r => r.status === "fila").sort((a, b) => b.votes - a.votes || new Date(a.created_at) - new Date(b.created_at));
   body().innerHTML = `
     <h1 class="title">Fila de pedidos</h1>
-    <p class="lead">Vote nas que você também quer ouvir. As mais votadas sobem na tela da banda.</p>
+    <p class="lead">Vote nas que você também quer ouvir. As mais votadas sobem na tela de quem está tocando.</p>
     ${np ? `<div class="now-mini"><small>Tocando agora</small><b>${esc(np.song)}</b><span class="meta">${esc(np.artist)}</span></div>` : ""}
     ${q.length ? q.map(r => {
       const voted = myVotes.has(r.id);
@@ -430,7 +432,7 @@ function renderMeus() {
   const mine = reqs.filter(r => r.user_id === me).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   body().innerHTML = `
     <h1 class="title">Meus pedidos</h1>
-    <p class="lead">Você é avisado aqui quando a banda responder. Deixe esta página aberta.</p>
+    <p class="lead">Você é avisado aqui quando ${artist()} responder. Deixe esta página aberta.</p>
     ${mine.length ? mine.map(r => `
       <div class="q-item">
         <div class="info"><b>${esc(r.song)}</b><div class="meta">${esc(r.artist || "Pedido livre")} · ${ago(r.created_at)}</div>
