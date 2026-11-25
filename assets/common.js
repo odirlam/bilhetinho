@@ -55,6 +55,17 @@ const ERRORS = {
   sem_permissao: "Você não tem permissão para isso.",
   precisa_login: "Você precisa entrar com seu e-mail.",
   sem_banda: "Cadastre o nome da banda primeiro.",
+  longe_da_festa: "Parece que você não está no local da festa.",
+  menor_de_idade: "O coração é só para maiores de 18 anos.",
+  local_nao_definido: "O coração ainda não foi ativado nesta festa.",
+  removido: "Seu perfil foi removido desta festa.",
+  sem_perfil: "Entre no coração primeiro.",
+  perfil_indisponivel: "Essa pessoa não está mais disponível.",
+  calma: "Calma! Espere um pouquinho antes de mandar de novo.",
+  drink_ja_enviado: "Você já convidou essa pessoa para um drink.",
+  limite_drinks: "Você já mandou os 5 convites de drink desta noite.",
+  nada_para_responder: "Ainda não há nada para responder.",
+  local_invalido: "Não deu para registrar o local da festa.",
   codigo_expirado: "O código do tablet expirou. Escaneie o QR novo que aparece no tablet."
 };
 export function errMsg(e) {

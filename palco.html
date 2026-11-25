@@ -63,6 +63,10 @@ details summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)
 .ff-opts{display:flex;flex-wrap:wrap;gap:12px}
 .ff-opts .field{margin:0;width:160px}
 .foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.report-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.report-row img{width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--surface-2)}
+.report-row div{flex:1;font-size:14px}
+.report-row small{color:var(--muted)}
 .foot small{color:var(--muted);font-size:12.5px;max-width:52ch}
 .pair{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:26px;text-align:center}
 .pair h1{margin:0;font-size:24px}
@@ -81,7 +85,7 @@ import { sb, configured, ensureSession, esc, brl, money, pixSplit, ago, fmtDay, 
 
 const root = document.getElementById("root");
 let me = null, ev = null, reqs = [], sortBy = store("palco_sort") || "votos", big = !!store("palco_big");
-let showRules = false, rulesDraft = null, pairTimer = null, pairChannel = null, seen = new Set();
+let showHeart = false, heartInfo = null, venueMsg = "", showRules = false, rulesDraft = null, pairTimer = null, pairChannel = null, seen = new Set();
 
 init();
 async function init() {
@@ -159,6 +163,7 @@ async function startStage(event) {
         <button type="button" data-sort="chegada">Ordem de chegada</button>
       </div>
       <button type="button" class="chip-btn" id="bigBtn" aria-pressed="${big}">Letra grande</button>
+      <button type="button" class="chip-btn" id="heartBtn" aria-pressed="false" style="border-color:rgba(255,59,92,.6)">❤ Coração</button>
       <button type="button" class="chip-btn" id="rulesBtn" aria-pressed="false" style="border-color:rgba(255,194,75,.5)">Regras do Pix</button>
       <span class="cur-rule" id="curRule"></span>
       <span style="flex:1"></span>
@@ -175,6 +180,11 @@ async function startStage(event) {
   document.getElementById("bigBtn").addEventListener("click", e => {
     big = !big; store("palco_big", big); e.currentTarget.setAttribute("aria-pressed", String(big));
     document.getElementById("stage").classList.toggle("big", big);
+  });
+  document.getElementById("heartBtn").addEventListener("click", async e => {
+    showHeart = !showHeart; e.currentTarget.setAttribute("aria-pressed", String(showHeart));
+    if (showHeart) await loadHeart();
+    renderStage();
   });
   document.getElementById("rulesBtn").addEventListener("click", e => {
     showRules = !showRules; rulesDraft = { mode: ev.pix_mode, price: ev.ff_price, limit: ev.ff_limit };
@@ -211,6 +221,56 @@ async function startStage(event) {
     reqs = data || []; renderStage(); keepAwake();
   });
   keepAwake();
+  // O tablet fica no palco: ele registra o local da festa para liberar o coração.
+  if (ev.venue_lat == null || Date.now() - new Date(ev.venue_set_at || 0) > 12 * 3600e3) setVenue(false);
+}
+
+function setVenue(manual) {
+  if (!navigator.geolocation) { venueMsg = "Este navegador não informa a localização: o coração da plateia fica desligado."; return renderStage(); }
+  venueMsg = "Registrando o local da festa…"; renderStage();
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { error } = await sb.rpc("set_venue_location", { p_event: ev.id, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude });
+    if (error) { venueMsg = errMsg(error); return renderStage(); }
+    ev.venue_lat = pos.coords.latitude; ev.venue_lng = pos.coords.longitude; ev.venue_set_at = new Date().toISOString();
+    venueMsg = ""; renderStage();
+    if (manual) toast("Local da festa atualizado. O coração usa este ponto.");
+  }, err => {
+    venueMsg = err.code === 1 ? "Libere a localização deste tablet para ligar o coração da plateia." : "Não conseguimos a localização do tablet. Tente de novo.";
+    renderStage();
+  }, { enableHighAccuracy: true, timeout: 20000 });
+}
+
+async function loadHeart() {
+  const [st, rp] = await Promise.all([sb.rpc("heart_stats", { p_event: ev.id }), sb.rpc("heart_reports", { p_event: ev.id })]);
+  const reports = rp.data || [];
+  let urls = {};
+  if (reports.length) {
+    const { data } = await sb.storage.from("heart-photos").createSignedUrls(reports.map(r => `${ev.id}/${r.user_id}/foto.jpg`), 3600);
+    (data || []).forEach((d, i) => { if (d.signedUrl) urls[reports[i].user_id] = d.signedUrl; });
+  }
+  heartInfo = { stats: st.data || { perfis: 0, matches: 0 }, reports, urls };
+}
+
+function heartPanel() {
+  const h = heartInfo || { stats: { perfis: 0, matches: 0 }, reports: [], urls: {} };
+  const venueOk = ev.venue_lat != null;
+  return `<div class="rules-panel" style="border-color:rgba(255,59,92,.7)">
+    <div><h3>❤ Coração da plateia</h3>
+      <p class="lead" style="margin:0">${h.stats.perfis} pessoas no coração · ${h.stats.matches} matches nesta festa</p></div>
+    <div class="foot"><small>${venueOk ? `Local da festa registrado ${venueAgo()}. Só entra quem está perto daqui.` : "O local da festa ainda não foi registrado: o coração está desligado."}</small>
+      <button type="button" class="btn" id="venueBtn">${venueOk ? "Atualizar local" : "Registrar local"}</button></div>
+    <div><b>Denúncias</b>
+      ${h.reports.length ? h.reports.map(r => `<div class="report-row">
+          <img src="${esc(h.urls[r.user_id] || "")}" alt="">
+          <div><b>${esc(r.nickname)}</b> · ${r.reports} denúncia${r.reports > 1 ? "s" : ""}<br><small>${esc(r.reasons || "sem motivo")}</small></div>
+          ${r.hidden ? `<span class="pill nao">Removido</span>` : `<button type="button" class="btn" data-remove="${r.user_id}">Remover da festa</button>`}
+        </div>`).join("") : `<p class="meta" style="margin:4px 0 0">Nenhuma denúncia. Duas denúncias de pessoas diferentes já tiram o perfil automaticamente.</p>`}
+    </div>
+  </div>`;
+}
+function venueAgo() {
+  const m = Math.round((Date.now() - new Date(ev.venue_set_at)) / 60000);
+  return m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)} h`;
 }
 
 // Mantém a tela do tablet acesa durante o show, quando o navegador permite.
@@ -249,6 +309,8 @@ function renderStage() {
   const isFF = r => r.ff && r.tip_status === "paid";
 
   tBody.innerHTML = `
+    ${venueMsg ? `<div class="notice" style="margin:0">${esc(venueMsg)}</div>` : ""}
+    ${showHeart ? heartPanel() : ""}
     ${showRules ? rulesPanel() : ""}
     ${np ? `<div class="playing">
       <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -282,6 +344,13 @@ function renderStage() {
     b.disabled = true;
     const { error } = await sb.rpc("set_status", { p_request: b.dataset.id, p_status: b.dataset.act });
     if (error) { toast(esc(errMsg(error)), true); b.disabled = false; }
+  }));
+  document.getElementById("venueBtn")?.addEventListener("click", () => setVenue(true));
+  tBody.querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", async () => {
+    if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Confirmar remoção"; return; }
+    const { error } = await sb.rpc("heart_remove", { p_event: ev.id, p_user: b.dataset.remove });
+    if (error) return toast(esc(errMsg(error)), true);
+    await loadHeart(); renderStage(); toast("Perfil removido do coração desta festa.");
   }));
   if (showRules) {
     tBody.querySelectorAll("[data-mode]").forEach(b => b.addEventListener("click", () => { rulesDraft.mode = b.dataset.mode; renderStage(); }));

@@ -13,6 +13,10 @@ Pedidos de música digitais para festas, bares e shows. A plateia pede pelo celu
 | `/banda` | Banda ou organizador | Login por e-mail, criar evento, QR da plateia, conectar o tablet |
 | `/` | Todos | Página inicial |
 
+## Coração (fase 2)
+
+Na aba do coração, quem está na festa pode conhecer outras pessoas: declaração de 18+, conferência de localização (o tablet do palco registra o local da festa), selfie, "sou" e "quero conhecer", curtir ou passar, match e mensagens prontas (convite para drink, encontro no bar, dançar). Até 5 convites de drink por noite. Denunciar e bloquear; duas denúncias tiram o perfil, e o palco pode remover alguém. O banco está em `supabase/002_coracao.sql`.
+
 ## Como está montado
 
 - Site estático (HTML, CSS e JavaScript, sem etapa de build), publicado na Vercel.
@@ -23,7 +27,7 @@ Pedidos de música digitais para festas, bares e shows. A plateia pede pelo celu
 
 ## Configuração
 
-1. No Supabase, rode `supabase/schema.sql` no SQL Editor.
+1. No Supabase, rode `supabase/schema.sql` e depois `supabase/002_coracao.sql` no SQL Editor.
 2. Em Authentication > Sign In / Providers, ligue **Allow anonymous sign-ins**.
 3. Em Authentication > URL Configuration, coloque o endereço do site em **Site URL** e acrescente `https://<seu-site>/banda` em **Redirect URLs**.
 4. Preencha `config.js` com a Project URL e a chave `anon public` (Project Settings > API).
