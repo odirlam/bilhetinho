@@ -65,6 +65,9 @@ const ERRORS = {
   drink_ja_enviado: "Você já convidou essa pessoa para um drink.",
   limite_drinks: "Você já mandou os 5 convites de drink desta noite.",
   nada_para_responder: "Ainda não há nada para responder.",
+  mesa_invalida: "Informe sua mesa na aba Você para mandar essa resposta.",
+  sem_como_achar: "Preencha o \"como te achar\" no seu perfil do coração.",
+  pedido_invalido: "Não encontramos esse pedido de música.",
   local_invalido: "Não deu para registrar o local da festa.",
   codigo_expirado: "O código do tablet expirou. Escaneie o QR novo que aparece no tablet."
 };

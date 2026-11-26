@@ -1,23 +1,53 @@
 // Bilhetinho · Coração (fase 2): conhecer quem está na festa.
 // Regras no banco: supabase/002_coracao.sql
-import { sb, esc, errMsg, toast } from "/assets/common.js";
+import { sb, esc, errMsg, toast, norm, CATALOG } from "/assets/common.js";
 
 const BUCKET = "heart-photos";
+// Mensagens prontas (a lista do banco está em supabase/003_mensagens.sql).
 const MSG = {
   drink: "🍸 Te pago um drink?",
   bar: "📍 Te encontro no bar?",
   dancar: "💃 Bora dançar?",
   oi: "👋 Oi! Gostei de você",
+  foto: "📸 Bora tirar uma foto?",
+  onde: "👀 Onde você está?",
   sim: "✅ Bora!",
-  nao: "🙏 Agora não, obrigado"
+  nao: "🙏 Agora não, obrigado",
+  depois: "⏳ Daqui a pouco",
+  drink_sim: "🍹 Aceito! Te espero no bar",
+  sem_alcool: "🥤 Pode ser sem álcool?",
+  indo: "🏃 Tô indo!",
+  dancar_sim: "💃 Bora!",
+  proxima: "🎶 Na próxima música",
+  tambem: "😊 Também gostei de você",
+  oi_volta: "👋 Oi!",
+  foto_sim: "📸 Bora!",
+  amei: "🥰 Amei!",
+  obrigado: "😄 Obrigado!"
 };
-const ASKS = ["drink", "bar", "dancar", "oi"];
+const msgText = x =>
+  x.kind === "mesa" ? `📍 Estou na mesa ${x.extra}` :
+  x.kind === "acha" ? `📍 Me acha: ${x.extra}` :
+  x.kind === "musica" ? `🎤 Pedi “${x.extra}” pra você` :
+  (MSG[x.kind] || "");
+const ASKS = ["drink", "bar", "dancar", "oi", "foto", "onde", "musica"];
+const ASK_LABEL = { ...MSG, musica: "🎤 Pedi uma música pra você" };
+// Respostas que combinam com cada convite.
+const REPLIES = {
+  drink: ["drink_sim", "sem_alcool", "depois", "nao"],
+  bar: ["indo", "mesa", "depois", "nao"],
+  dancar: ["dancar_sim", "proxima", "depois", "nao"],
+  oi: ["tambem", "oi_volta", "nao"],
+  foto: ["foto_sim", "depois", "nao"],
+  onde: ["mesa", "acha", "nao"],
+  musica: ["amei", "obrigado"]
+};
 const GENDERS = [["mulher", "Mulher"], ["homem", "Homem"], ["nao_binario", "Não-binário"]];
 const INTERESTS = [["mulheres", "Mulheres"], ["homens", "Homens"], ["todos", "Todos"]];
 const REASONS = ["Perfil falso", "Foto imprópria", "Comportamento ofensivo", "Parece menor de idade"];
 const heartSvg = `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.4 2.5.2.3.6.3.8 0 .8-1.3 2.3-2.5 4.4-2.5 3.7 0 5.8 3.8 4.3 7.2C18.6 16.4 12 21 12 21z"/></svg>`;
 
-export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, artist }) {
+export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, getMesa = () => "", afterSongRequest = () => {} }) {
   let prof = undefined;          // undefined: ainda não carregado; null: sem perfil
   let view = "conhecer";         // conhecer | matches | chat
   let deck = [], matches = [], chatMatch = null, chatMsgs = [];
@@ -59,7 +89,7 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
         if (!matches.some(m => m.match_id === msg.match_id)) await loadMatches();
         const m = matches.find(x => x.match_id === msg.match_id);
         if (m && !(isOpen() && view === "chat" && chatMatch?.match_id === msg.match_id)) {
-          toast(`<b>${esc(m.nickname)}</b>: ${esc(MSG[msg.kind])}`);
+          toast(`<b>${esc(m.nickname)}</b>: ${esc(msgText(msg))}`);
           m.unread = true;
           if (!isOpen()) setBadge(true); else if (view === "matches") renderMatches();
         }
@@ -301,7 +331,11 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
   function renderChat() {
     const m = chatMatch;
     const last = chatMsgs[chatMsgs.length - 1];
-    const canReply = last && last.from_user !== me && ASKS.includes(last.kind);
+    const mesa = (getMesa() || "").trim();
+    const replies = last && last.from_user !== me && REPLIES[last.kind]
+      ? REPLIES[last.kind].filter(k => (k !== "mesa" || /^[0-9A-Za-z]{1,6}$/.test(mesa)) && (k !== "acha" || (prof?.find_me || "").trim()))
+      : [];
+    const replyLabel = k => k === "mesa" ? `📍 Estou na mesa ${mesa}` : k === "acha" ? `📍 Me acha: ${prof.find_me}` : MSG[k];
     const sentDrink = chatMsgs.some(x => x.from_user === me && x.kind === "drink");
     body().innerHTML = `
       <button type="button" class="back-link" id="hBack">← Matches</button>
@@ -310,21 +344,21 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
         <div><b>${esc(m.nickname)}</b>${m.find_me ? `<small>Como achar: ${esc(m.find_me)}</small>` : ""}</div>
       </div>
       <div class="chat">
-        ${chatMsgs.length ? chatMsgs.map(x => `<div class="bubble ${x.from_user === me ? "mine" : ""}">${esc(MSG[x.kind])}</div>`).join("")
+        ${chatMsgs.length ? chatMsgs.map(x => `<div class="bubble ${x.from_user === me ? "mine" : ""}">${esc(msgText(x))}</div>`).join("")
           : `<p class="hint" style="text-align:center">Vocês deram match. Que tal dar o primeiro passo?</p>`}
       </div>
-      ${canReply ? `<div class="quick reply">
-          <button type="button" class="q yes" data-k="sim">${MSG.sim}</button>
-          <button type="button" class="q" data-k="nao">${MSG.nao}</button></div>` : ""}
-      <div class="quick">
-        ${ASKS.filter(k => !(k === "drink" && sentDrink)).map(k => `<button type="button" class="q" data-k="${k}">${MSG[k]}</button>`).join("")}
+      ${replies.length ? `<div class="quick reply"><span class="quick-lbl">Responder</span>
+          ${replies.map((k, i) => `<button type="button" class="q ${i === 0 ? "yes" : ""}" data-k="${k}">${esc(replyLabel(k))}</button>`).join("")}</div>` : ""}
+      <div class="quick"><span class="quick-lbl">${replies.length ? "Ou mandar" : "Mandar"}</span>
+        ${ASKS.filter(k => !(k === "drink" && sentDrink)).map(k => `<button type="button" class="q" data-k="${k}">${ASK_LABEL[k]}</button>`).join("")}
       </div>
       <div class="chat-foot">
         <button type="button" class="link-like" id="hBlock">Bloquear</button> ·
         <button type="button" class="link-like" id="hReport">Denunciar</button>
       </div>`;
     document.getElementById("hBack").addEventListener("click", () => { view = "matches"; chatMatch = null; render(); });
-    body().querySelectorAll("[data-k]").forEach(b => b.addEventListener("click", () => send(b.dataset.k)));
+    body().querySelectorAll("[data-k]").forEach(b => b.addEventListener("click", () =>
+      b.dataset.k === "musica" ? openSongPicker() : send(b.dataset.k, b.dataset.k === "mesa" ? mesa : "")));
     document.getElementById("hBlock").addEventListener("click", async () => {
       const { error } = await sb.rpc("heart_block", { p_event: ev().id, p_user: m.user_id, p_report: false, p_reason: "" });
       if (error) return toast(esc(errMsg(error)), true);
@@ -335,12 +369,51 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
     const chat = body().querySelector(".chat"); chat.scrollTop = chat.scrollHeight;
   }
 
-  async function send(kind) {
+  async function send(kind, extra = "") {
     body().querySelectorAll(".q").forEach(b => b.disabled = true);
-    const { data, error } = await sb.rpc("heart_send", { p_match: chatMatch.match_id, p_kind: kind });
+    const { data, error } = await sb.rpc("heart_send", { p_match: chatMatch.match_id, p_kind: kind, p_extra: extra });
     if (error) { toast(esc(errMsg(error)), true); return renderChat(); }
     if (!chatMsgs.some(x => x.id === data.id)) chatMsgs.push(data);
     renderChat();
+  }
+
+  /* ---------- Pedir uma música para o match ---------- */
+  function openSongPicker() {
+    const m = chatMatch;
+    const sheet = document.getElementById("sheet"), card = document.getElementById("sheetCard");
+    card.innerHTML = `
+      <h3>Pedir uma música para ${esc(m.nickname)}</h3>
+      <p class="lead" style="margin:4px 0 12px">O pedido vai para a fila da banda com a dedicatória "❤ Pra ${esc(m.nickname)}", e ${esc(m.nickname)} recebe um aviso.</p>
+      <div class="field"><input class="inp" id="sgQ" autocomplete="off" placeholder="Nome da música ou do artista"><div class="sugg" id="sgList" hidden></div></div>
+      <button class="ghost" type="button" id="sgCancel">Cancelar</button>`;
+    sheet.hidden = false;
+    const inp = document.getElementById("sgQ"), list = document.getElementById("sgList");
+    inp.focus();
+    inp.addEventListener("input", () => {
+      const q = norm(inp.value);
+      if (!q) { list.hidden = true; return; }
+      const items = CATALOG.filter(([t, a]) => norm(t).includes(q) || norm(a).includes(q)).slice(0, 5).map(([t, a]) => ({ t, a }));
+      if (!items.some(i => norm(i.t) === q)) items.push({ t: inp.value.trim(), a: "", free: true });
+      list.innerHTML = items.map((i, n) => `<button type="button" data-i="${n}"><b>${i.free ? `Pedir “${esc(i.t)}”` : esc(i.t)}</b><span>${esc(i.a || "Pedido livre")}</span></button>`).join("");
+      list.hidden = false;
+      list.querySelectorAll("button").forEach(b => b.addEventListener("click", () => pickSong(items[+b.dataset.i])));
+    });
+    document.getElementById("sgCancel").addEventListener("click", () => { sheet.hidden = true; });
+    async function pickSong(it) {
+      list.hidden = true; inp.disabled = true;
+      try {
+        const r = await sb.rpc("create_request", {
+          p_event: ev().id, p_song: it.t, p_artist: it.a || "", p_from: (getName() || prof.nickname).slice(0, 30),
+          p_mesa: getMesa() || "", p_message: `❤ Pra ${m.nickname}`.slice(0, 80), p_tip: 0, p_ff: false
+        });
+        if (r.error) throw r.error;
+        if (r.data.action === "playing") { toast(`“${esc(it.t)}” está tocando agora! Aproveitem.`); sheet.hidden = true; return; }
+        await send("musica", r.data.request_id);
+        sheet.hidden = true;
+        afterSongRequest();
+        toast(r.data.action === "created" ? `Pedido enviado para a banda, dedicado a <b>${esc(m.nickname)}</b>.` : `“${esc(it.t)}” já estava na fila: somamos seu voto e avisamos ${esc(m.nickname)}.`);
+      } catch (e) { toast(esc(errMsg(e)), true); inp.disabled = false; }
+    }
   }
 
   /* ---------- Denúncia ---------- */

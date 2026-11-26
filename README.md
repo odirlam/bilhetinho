@@ -27,7 +27,7 @@ Na aba do coração, quem está na festa pode conhecer outras pessoas: declaraç
 
 ## Configuração
 
-1. No Supabase, rode `supabase/schema.sql` e depois `supabase/002_coracao.sql` no SQL Editor.
+1. No Supabase, rode no SQL Editor, nesta ordem: `supabase/schema.sql`, `supabase/002_coracao.sql` e `supabase/003_mensagens.sql`.
 2. Em Authentication > Sign In / Providers, ligue **Allow anonymous sign-ins**.
 3. Em Authentication > URL Configuration, coloque o endereço do site em **Site URL** e acrescente `https://<seu-site>/banda` em **Redirect URLs**.
 4. Preencha `config.js` com a Project URL e a chave `anon public` (Project Settings > API).

@@ -69,7 +69,8 @@ async function init() {
   await Promise.all([loadReqs(), loadVotes()]);
   heart = createHeart({
     getEv: () => ev, me, getBody: body, isOpen: () => tab === "coracao",
-    getName: () => profile.name,
+    getName: () => profile.name, getMesa: () => profile.mesa,
+    afterSongRequest: async () => { await Promise.all([loadReqs(), loadVotes()]); updateCount(); },
     setBadge: on => document.querySelector(".nav-heart")?.classList.toggle("has-news", on)
   });
   heart.listen();
