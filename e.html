@@ -206,8 +206,7 @@ async function wipeAll() {
     await sb.auth.signOut();
     app.innerHTML = `<div class="center"><div class="okbig">✓</div><h1 class="title">Pronto, seus dados foram apagados</h1>
       <p>Se abrir o QR da festa de novo, você entra como uma pessoa nova.</p>
-      <button class="ghost" type="button" id="again" style="max-width:260px">Entrar de novo</button></div>`;
-    document.getElementById("again").addEventListener("click", () => location.reload());
+      <a class="ghost" href="/" style="max-width:260px;display:block;text-align:center;text-decoration:none;color:var(--text)">Ir para o início</a></div>`;
   } catch (e) {
     toast(esc(errMsg(e)), true);
     btn.disabled = false; btn.dataset.sure = ""; btn.textContent = "Sair e apagar meus dados";
