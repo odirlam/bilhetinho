@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1B1830">
-<title>Bilhetinho · Área da banda</title>
+<title>Bilhetinho · Área da banda e do DJ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/style.css">
@@ -44,7 +44,7 @@
 <div class="app">
   <header class="head" style="display:flex;align-items:center;gap:12px">
     <a class="logo" href="/">Bilhetinho</a>
-    <span class="sub" style="margin:0" id="who">Área da banda</span>
+    <span class="sub" style="margin:0" id="who">Área da banda e do DJ</span>
     <span style="flex:1"></span>
     <button type="button" class="chip-btn" id="logout" hidden>Sair</button>
   </header>
@@ -91,8 +91,8 @@ function loginView(sentTo) {
       <p class="hint">Não chegou? Veja a caixa de spam ou tente de novo em um minuto.</p>
       <button class="ghost" type="button" id="again" style="max-width:280px">Usar outro e-mail</button>
     </div>` : `
-    <h1 class="title">Entrar como banda</h1>
-    <p class="lead">${pairCode ? "Entre com o e-mail da banda para conectar o tablet do palco." : "Sem senha: você recebe um link de acesso no seu e-mail."}</p>
+    <h1 class="title">Entrar como banda ou DJ</h1>
+    <p class="lead">${pairCode ? "Entre com o e-mail da banda ou do DJ para conectar o tablet do palco." : "Sem senha: você recebe um link de acesso no seu e-mail."}</p>
     <form id="loginForm" novalidate>
       <div class="field"><label for="email">E-mail</label><input class="inp" id="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@exemplo.com" required></div>
       <button class="cta" type="submit" id="loginBtn">Receber link de acesso</button>
@@ -113,15 +113,15 @@ function loginView(sentTo) {
 function bandNameView() {
   body.innerHTML = `
     <h1 class="title">Bem-vindo ao Bilhetinho</h1>
-    <p class="lead">Como a banda aparece para a plateia?</p>
+    <p class="lead">Como você aparece para a plateia?</p>
     <form id="bandForm" novalidate>
-      <div class="field"><label for="bname">Nome da banda ou artista</label><input class="inp" id="bname" maxlength="60" placeholder="Ex.: Banda Replay" required></div>
+      <div class="field"><label for="bname">Nome da banda ou do DJ</label><input class="inp" id="bname" maxlength="60" placeholder="Ex.: Banda Replay ou DJ Marcelo" required></div>
       <button class="cta" type="submit">Continuar</button>
     </form>`;
   document.getElementById("bandForm").addEventListener("submit", async e => {
     e.preventDefault();
     const name = document.getElementById("bname").value.trim();
-    if (name.length < 2) return toast("Digite o nome da banda.", true);
+    if (name.length < 2) return toast("Digite o nome da banda ou do DJ.", true);
     const { data, error } = await sb.rpc("save_band", { p_name: name });
     if (error) return toast(esc(errMsg(error)), true);
     band = data; init();
@@ -342,7 +342,7 @@ function registerVenue(ev) {
 function pairView() {
   const open = events.filter(e => !isPast(e));
   if (!open.length) {
-    body.innerHTML = `<div class="center"><h1 class="title">Crie um evento primeiro</h1><p>Para conectar o tablet, a banda precisa ter um evento marcado.</p><button class="cta" type="button" id="mk" style="max-width:280px">Criar evento</button></div>`;
+    body.innerHTML = `<div class="center"><h1 class="title">Crie um evento primeiro</h1><p>Para conectar o tablet, você precisa ter um evento marcado.</p><button class="cta" type="button" id="mk" style="max-width:280px">Criar evento</button></div>`;
     document.getElementById("mk").addEventListener("click", () => { pairCode = null; createView(); });
     return;
   }
