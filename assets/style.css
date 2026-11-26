@@ -171,9 +171,11 @@ h1.title,h2.title{font-size:21px;margin:0 0 4px;text-wrap:balance}
 .selfie.has{border-style:solid}
 .selfie img{width:100%;height:100%;object-fit:cover}
 .link-like{background:none;border:0;padding:0;color:var(--accent-2);font-weight:700;cursor:pointer;font-size:inherit}
-.seg-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
-.seg-tabs button{border:0;background:none;padding:10px;font-weight:800;color:var(--muted)}
-.seg-tabs button[aria-selected="true"]{background:var(--surface-2);color:var(--text)}
+.seg-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+.seg-tabs button{border:0;background:none;border-radius:10px;padding:11px 8px;font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px}
+.seg-tabs button[aria-selected="true"]{background:var(--heart);color:#fff;box-shadow:0 4px 14px rgba(255,59,92,.4)}
+.seg-tabs .n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px}
+.reload-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--heart);background:rgba(255,59,92,.12);color:#fff;border-radius:14px;padding:12px 22px;font-weight:800;font-size:15px}
 .dot-red{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--heart);vertical-align:middle}
 .person{position:relative;border-radius:22px;overflow:hidden;background:var(--surface-2);aspect-ratio:3/4;max-height:58vh;margin:0 auto;box-shadow:0 14px 40px rgba(0,0,0,.45)}
 .person-photo{width:100%;height:100%;object-fit:cover;display:block}

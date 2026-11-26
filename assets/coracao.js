@@ -200,7 +200,7 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
     const unread = matches.filter(m => m.unread).length;
     return `<div class="seg-tabs" role="tablist">
       <button role="tab" type="button" data-hv="conhecer" aria-selected="${active === "conhecer"}">Conhecer</button>
-      <button role="tab" type="button" data-hv="matches" aria-selected="${active === "matches"}">Matches${matches.length ? ` (${matches.length})` : ""}${unread ? ` <span class="dot-red"></span>` : ""}</button>
+      <button role="tab" type="button" data-hv="matches" aria-selected="${active === "matches"}">Matches${matches.length ? ` <span class="n">${matches.length}</span>` : ""}${unread ? ` <span class="dot-red"></span>` : ""}</button>
     </div>`;
   }
   function wireTabs() {
@@ -237,7 +237,7 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
         </div>` : `
         <div class="center" style="min-height:45vh">
           <p>Por enquanto é só. Novas pessoas aparecem conforme entram no coração.</p>
-          <button class="ghost" type="button" id="hReload" style="max-width:240px">Atualizar</button>
+          <button class="reload-btn" type="button" id="hReload">↻ Atualizar</button>
         </div>`}
       <button type="button" class="link-like leave" id="hLeave">Sair do coração</button>`;
     wireTabs();
