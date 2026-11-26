@@ -71,6 +71,13 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
 .step-lp::before{content:counter(st);display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--accent);color:#1a0a12;font-family:var(--display);font-size:18px;margin-bottom:12px}
 .step-lp h3{margin:0 0 6px;font-size:17.5px}
 .step-lp p{margin:0;color:var(--muted);font-size:14.5px}
+.ways{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ways span{border:1px solid var(--line);background:var(--surface-2);border-radius:999px;padding:5px 10px;font-size:13px;font-weight:700;color:var(--text)}
+.ways span:first-child{border-color:var(--accent-2)}
+.easy{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;margin-top:16px;border:1px dashed var(--accent-2);border-radius:16px;padding:16px 18px;background:rgba(58,214,201,.06)}
+.easy .ic{font-size:30px}
+.easy p{margin:0;color:#d9d2f3;font-size:15px}
+.easy b{color:var(--text)}
 
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .aud{border:1px solid var(--line);border-radius:18px;padding:22px;background:var(--surface)}
@@ -130,7 +137,7 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
         <a class="btn-main" href="/banda">Criar minha conta grátis</a>
         <a class="btn-wa wa" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.1 5.1 0 0 0 1.1 2.7 11.7 11.7 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.2c0-.1-.2-.2-.4-.3z"/></svg>Falar no WhatsApp</a>
       </div>
-      <p class="free"><b>Grátis para bandas e DJs.</b> A plateia entra pelo QR code, sem instalar nada.</p>
+      <p class="free"><b>Grátis para bandas e DJs.</b> A plateia entra pelo QR code do telão, sem instalar nada.</p>
     </div>
 
     <div class="stagepic" aria-hidden="true">
@@ -178,9 +185,12 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
     <h2 class="t">Pronto para o show em 5 minutos</h2>
     <div class="steps-lp">
       <div class="step-lp"><h3>Crie o evento</h3><p>Entre com seu e-mail, sem senha. Coloque nome, local, horário e a regra do Pix.</p></div>
-      <div class="step-lp"><h3>Coloque o QR nas mesas</h3><p>O QR code da plateia fica pronto na hora, para imprimir ou mostrar onde quiser.</p></div>
+      <div class="step-lp"><h3>Mostre o QR para a plateia</h3><p>O Bilhetinho já gera a imagem pronta. É só baixar e mostrar:</p>
+        <div class="ways"><span>📺 No telão ou na TV</span><span>📱 No story do Instagram</span><span>🍻 Nas mesas, se quiser imprimir</span></div></div>
       <div class="step-lp"><h3>Conecte o palco</h3><p>Abra o Bilhetinho no tablet, escaneie com seu celular e os pedidos começam a chegar.</p></div>
     </div>
+    <div class="easy"><span class="ic" aria-hidden="true">📺</span>
+      <p><b>O jeito mais fácil: o QR no telão.</b> Coloque a imagem entre uma música e outra, ou num cantinho da tela, e a plateia pede na hora. Sem imprimir nada, sem colar nada nas mesas.</p></div>
   </section>
 
   <section class="blk">
@@ -263,6 +273,7 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
     <details><summary>O Pix cai direto na minha conta?</summary><p>Esse é o próximo passo: estamos integrando o Mercado Pago para o Pix cair direto na sua conta, com a divisão automática. Até lá, o Pix fica em modo de teste.</p></details>
     <details><summary>E se pedirem uma música que eu não toco?</summary><p>Toque em “Não tenho” e quem pediu recebe um aviso gentil, sugerindo pedir outra.</p></details>
     <details><summary>Posso escolher se o Pix fura a fila?</summary><p>Sim. Você escolhe entre três regras: o Pix só destaca o pedido, dá uma pequena prioridade, ou vira fura-fila com valor e limite por hora definidos por você. Dá para mudar durante o show.</p></details>
+    <details><summary>Preciso imprimir QR code para as mesas?</summary><p>Não. O Bilhetinho gera a imagem pronta para o telão, para a TV da casa e para o story do Instagram. Imprimir para as mesas é só mais uma opção.</p></details>
     <details><summary>Que aparelho eu preciso no palco?</summary><p>Qualquer tablet ou celular com navegador e internet. Você conecta lendo um QR code com o seu celular, e a tela fica acesa durante o show.</p></details>
     <details><summary>Precisa de internet?</summary><p>Sim, no palco e no celular da plateia (Wi-Fi da casa ou 4G). Se a conexão oscilar, os pedidos aparecem assim que ela voltar.</p></details>
     <details><summary>Funciona para DJ?</summary><p>Funciona igual: os pedidos aparecem com o seu nome de DJ para o público.</p></details>
