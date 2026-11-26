@@ -165,11 +165,17 @@ function renderPerfil(changing, inTab = false) {
       </div>
       <button class="cta" type="submit">${changing ? "Salvar" : "Entrar na festa"}</button>
       ${changing && !inTab ? `<button class="ghost" type="button" id="pCancel">Cancelar</button>` : ""}
-    </form>`;
+    </form>
+    ${inTab ? `<div class="danger-zone">
+      <b>Sair e apagar meus dados</b>
+      <p>Apaga seu perfil do coração (foto, curtidas e matches), esquece seu nome e sua mesa neste celular e desconecta você. Os pedidos de música já enviados continuam na fila, mas deixam de ficar ligados a você.</p>
+      <button type="button" class="btn-danger" id="wipeBtn">Sair e apagar meus dados</button>
+    </div>` : ""}`;
   const nameInp = document.getElementById("pName");
   if (!profile.name) nameInp.focus();
   document.getElementById("pMesa").addEventListener("input", e => { e.target.value = e.target.value.replace(/[^0-9a-zA-Z]/g, ""); });
   document.getElementById("pCancel")?.addEventListener("click", () => render());
+  document.getElementById("wipeBtn")?.addEventListener("click", wipeAll);
   document.getElementById("perfilForm").addEventListener("submit", e => {
     e.preventDefault();
     const name = nameInp.value.trim();
@@ -183,6 +189,28 @@ function renderPerfil(changing, inTab = false) {
     tab = "pedir"; render();
   });
   window.scrollTo(0, 0);
+}
+
+/* ---------- Sair e apagar meus dados ---------- */
+async function wipeAll() {
+  const btn = document.getElementById("wipeBtn");
+  if (!btn.dataset.sure) { btn.dataset.sure = "1"; btn.textContent = "Toque de novo para apagar tudo"; return; }
+  btn.disabled = true; btn.textContent = "Apagando…";
+  try {
+    await heart.wipe();
+    try {
+      Object.keys(localStorage).filter(k => k === "bh_perfil" || k.startsWith("bh_mesa_") || k.startsWith("bh_entrou_"))
+        .forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
+    await sb.auth.signOut();
+    app.innerHTML = `<div class="center"><div class="okbig">✓</div><h1 class="title">Pronto, seus dados foram apagados</h1>
+      <p>Se abrir o QR da festa de novo, você entra como uma pessoa nova.</p>
+      <button class="ghost" type="button" id="again" style="max-width:260px">Entrar de novo</button></div>`;
+    document.getElementById("again").addEventListener("click", () => location.reload());
+  } catch (e) {
+    toast(esc(errMsg(e)), true);
+    btn.disabled = false; btn.dataset.sure = ""; btn.textContent = "Sair e apagar meus dados";
+  }
 }
 
 /* ---------- Coração (assets/coracao.js) ---------- */

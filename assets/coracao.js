@@ -383,5 +383,16 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, art
     render();
   }
 
-  return { render, listen };
+  // Apaga tudo do coração desta pessoa neste evento (usado em "Sair e apagar meus dados").
+  async function wipe() {
+    if (prof === undefined) await loadProfile();
+    if (prof) {
+      const { error } = await sb.rpc("heart_leave", { p_event: ev().id });
+      if (error) throw error;
+      await sb.storage.from(BUCKET).remove([photoPath(me)]);
+    }
+    prof = null;
+  }
+
+  return { render, listen, wipe };
 }
