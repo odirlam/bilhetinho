@@ -84,6 +84,33 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
 .aud h3{margin:0 0 12px;font-size:20px}
 .aud ul{margin:0;padding-left:20px;display:grid;gap:8px;color:#d9d2f3;font-size:15px}
 
+.promo{display:inline-flex;align-items:center;gap:10px;margin:0 0 18px;padding:7px 14px 7px 7px;border:1px solid rgba(255,59,92,.55);border-radius:999px;background:rgba(255,59,92,.1);color:var(--text);text-decoration:none;font-size:14.5px;line-height:1.3}
+.promo b{color:#ff8aa0}
+.promo:hover{background:rgba(255,59,92,.18)}
+.mini-heart{position:relative;flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--heart);color:#fff}
+.mini-heart svg{width:17px;height:17px;animation:heartbeat 1.6s ease-in-out infinite}
+.mini-heart::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--heart);animation:heartwave 1.6s ease-out infinite}
+.mini-heart.big{width:64px;height:64px}
+.mini-heart.big svg{width:34px;height:34px}
+.heart-link{color:#ff8aa0!important}
+.pain.wide{grid-column:1/-1;border-color:rgba(255,59,92,.45)}
+.pain a{color:#ff8aa0;font-weight:800;white-space:nowrap}
+.h-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.h-step{border:1px solid var(--line);border-radius:18px;padding:18px;background:var(--surface)}
+.h-step h3{margin:14px 0 6px;font-size:17px}
+.h-step p{margin:0;color:var(--muted);font-size:14.5px}
+.h-mock{height:170px;border-radius:14px;background:var(--bg);border:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:8px;justify-content:center}
+.h-mock.hc{align-items:center;text-align:center;gap:6px}
+.h-mock small{color:var(--muted);font-size:12px}
+.h-card{position:relative;flex:1;border-radius:12px;background:linear-gradient(160deg,#5b4b9a,#2a2346);padding:10px;display:flex;flex-direction:column;justify-content:flex-end}
+.h-card b{font-size:16px}
+.h-face{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#e9c8b0 0 30%,transparent 31%),radial-gradient(circle at 50% 100%,#e9c8b0 0 45%,transparent 46%);opacity:.85}
+.h-btns{display:flex;justify-content:center;gap:16px}
+.h-btns span{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);font-weight:800;font-size:14px}
+.h-btns .lk{background:var(--heart);border-color:var(--heart);color:#fff}
+.bub{align-self:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:8px 11px;font-size:13.5px}
+.bub.me{align-self:flex-end;background:rgba(255,59,92,.2);border-color:rgba(255,59,92,.5);border-radius:14px 14px 4px 14px}
+@media (max-width:860px){ .h-steps{grid-template-columns:1fr} .lp-nav .small:not(.heart-link){display:none} }
 .heart-blk{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;border:1px solid rgba(255,59,92,.45);border-radius:22px;padding:28px;background:radial-gradient(ellipse at 0% 50%,rgba(255,59,92,.16),transparent 60%),var(--surface)}
 .heart-blk .heart-core{margin:0}
 
@@ -124,6 +151,7 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
 <nav class="lp-nav">
   <a class="logo" href="/">Bilhetinho</a>
   <span class="sp"></span>
+  <a class="small heart-link" href="#coracao">❤ Coração</a>
   <a class="small" href="#como-funciona">Como funciona</a>
   <a class="btn-main btn-sm" href="/banda">Entrar</a>
 </nav>
@@ -131,6 +159,7 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
 <main class="lp">
   <header class="hero">
     <div>
+      <a class="promo" href="#coracao"><span class="mini-heart" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.4 2.5.2.3.6.3.8 0 .8-1.3 2.3-2.5 4.4-2.5 3.7 0 5.8 3.8 4.3 7.2C18.6 16.4 12 21 12 21z"/></svg></span><span><b>Novo:</b> o coração, que traz o público solteiro para a sua festa</span><span aria-hidden="true">→</span></a>
       <h1>Chega de bilhetinho <em>ilegível</em> no palco</h1>
       <p class="h2">A plateia pede músicas pelo celular, com dedicatória e Pix para você. Tudo legível na tela do palco, mesmo no escuro.</p>
       <div class="cta-row">
@@ -164,6 +193,7 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
       <div class="pain">Quantas <b>gorjetas</b> a sua pista deixou de dar porque ninguém anda mais com dinheiro vivo?</div>
       <div class="pain">Recebeu <b>cinco bilhetes</b> pedindo a mesma música e nenhum pedindo a que a pista inteira queria?</div>
       <div class="pain">Seu público passa a noite no <b>celular</b>. E se esse celular trabalhasse a seu favor?</div>
+      <div class="pain wide">Metade da sua pista está <b>solteira</b> e ninguém tem coragem de puxar papo? <a href="#coracao">Veja o coração ❤</a></div>
     </div>
   </section>
 
@@ -218,13 +248,43 @@ p.lead-lg{font-size:17px;color:#d9d2f3;max-width:60ch;margin:0 0 26px}
     </div>
   </section>
 
-  <section class="blk">
+  <section class="blk" id="coracao">
     <div class="heart-blk">
       <span class="heart-core big" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.4 2.5.2.3.6.3.8 0 .8-1.3 2.3-2.5 4.4-2.5 3.7 0 5.8 3.8 4.3 7.2C18.6 16.4 12 21 12 21z"/></svg></span>
       <div>
         <p class="kicker" style="color:#ff6b85">Só o Bilhetinho tem</p>
         <h2 class="t">O coração: o público se conhece ali mesmo</h2>
-        <p class="lead-lg" style="margin:0">Quem está na festa, e só quem está na festa, pode curtir outras pessoas. Se for recíproco, elas se chamam para um drink, para dançar ou para se encontrar no bar. Com selfie na hora, só para maiores de 18, denúncia a um toque, e tudo some quando a festa acaba.</p>
+        <p class="lead-lg" style="margin:0">Quem está na festa, e só quem está na festa, pode curtir outras pessoas. Se for recíproco, elas se chamam para um drink, para dançar ou para se encontrar no bar. É o motivo que faltava para o público solteiro escolher a sua festa.</p>
+      </div>
+    </div>
+
+    <div class="h-steps">
+      <div class="h-step"><div class="h-mock"><div class="h-card"><span class="h-face"></span><b>Bruno</b><small>camisa azul, perto do bar</small></div><div class="h-btns"><span>✕</span><span class="lk">❤</span></div></div>
+        <h3>1. Curte quem chamou atenção</h3><p>Só aparece quem está na festa, com selfie tirada na hora.</p></div>
+      <div class="h-step"><div class="h-mock hc"><span class="mini-heart big" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.3 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.4 2.5.2.3.6.3.8 0 .8-1.3 2.3-2.5 4.4-2.5 3.7 0 5.8 3.8 4.3 7.2C18.6 16.4 12 21 12 21z"/></svg></span><b style="font-size:20px">Deu match!</b><small>Vocês dois se curtiram</small></div>
+        <h3>2. Deu match</h3><p>Só quando os dois querem. Ninguém recebe mensagem sem match.</p></div>
+      <div class="h-step"><div class="h-mock"><div class="bub">🍸 Te pago um drink?</div><div class="bub me">🍹 Aceito! Te espero no bar</div></div>
+        <h3>3. Se encontram no bar</h3><p>Mensagens prontas, rápidas de usar no escuro e sem espaço para grosseria.</p></div>
+    </div>
+
+    <div class="two" style="margin-top:16px">
+      <div class="aud">
+        <h3>🏠 Por que isso enche a casa</h3>
+        <ul>
+          <li>O público solteiro ganha um motivo a mais para sair e para escolher a <b>sua</b> festa</li>
+          <li>Cada convite de drink vira uma <b>venda no bar</b> da casa, sem integrar nada com o seu caixa</li>
+          <li>Quem conheceu alguém na festa quer voltar na próxima e traz os amigos</li>
+          <li>Banda e DJ tocam para uma pista mais animada</li>
+        </ul>
+      </div>
+      <div class="aud">
+        <h3>🛡️ Seguro por padrão</h3>
+        <ul>
+          <li>Só maiores de 18 e só quem está no local da festa</li>
+          <li>Selfie tirada na hora, sem foto da galeria</li>
+          <li>Denunciar e bloquear a um toque; a organização pode remover perfis</li>
+          <li>Tudo some quando a festa acaba, e a pessoa pode apagar seus dados quando quiser</li>
+        </ul>
       </div>
     </div>
   </section>
