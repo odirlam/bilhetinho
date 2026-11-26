@@ -52,7 +52,7 @@
 </div>
 
 <script type="module">
-import { sb, configured, esc, brl, fmtDay, fmtTime, MODE_NAME, errMsg, qrDataUrl, toast, notConfigured } from "/assets/common.js";
+import { sb, configured, esc, brl, fmtDay, fmtTime, fmtDist, MODE_NAME, errMsg, qrDataUrl, toast, notConfigured } from "/assets/common.js";
 
 const body = document.getElementById("body");
 const params = new URLSearchParams(location.search);
@@ -241,6 +241,12 @@ function detailView(ev) {
     </div>
     <div class="sec">No dia do show</div>
     <div class="card-box">
+      <b>❤ Local da festa (para o coração)</b>
+      <p class="meta" style="margin:4px 0 10px" id="venueInfo">${venueText(ev)}</p>
+      <button class="btn" type="button" id="venueHere" style="width:100%;padding:12px">📍 Registrar o local da festa aqui</button>
+      <p class="hint" style="margin:8px 0 0">Faça isso no local do show, pelo celular: o GPS do celular é mais preciso que o de um computador.</p>
+    </div>
+    <div class="card-box">
       <b>Conectar o tablet do palco</b>
       <p class="meta" style="margin:4px 0 0">No tablet, abra <b>${esc(location.host)}/palco</b>. Depois aponte a câmera deste celular para o QR que aparecer lá.</p>
     </div>
@@ -248,10 +254,36 @@ function detailView(ev) {
     <a class="ghost" style="display:block;text-align:center;text-decoration:none;color:var(--text)" href="${esc(url)}" target="_blank" rel="noopener">Ver como a plateia vê</a>`;
   document.getElementById("back").addEventListener("click", listView);
   document.getElementById("print").addEventListener("click", () => window.print());
+  document.getElementById("venueHere").addEventListener("click", () => registerVenue(ev));
   document.getElementById("copy").addEventListener("click", async e => {
     try { await navigator.clipboard.writeText(url); e.target.textContent = "Link copiado"; } catch (_) { toast(esc(url)); }
   });
   window.scrollTo(0, 0);
+}
+
+function venueText(ev) {
+  if (ev.venue_lat == null) return "Ainda não registrado. Sem ele, o coração da plateia fica desligado.";
+  const m = Math.round((Date.now() - new Date(ev.venue_set_at)) / 60000);
+  const when = m < 1 ? "agora" : m < 60 ? `há ${m} min` : m < 1440 ? `há ${Math.floor(m / 60)} h` : fmtDay(ev.venue_set_at);
+  return `Registrado ${when}${ev.venue_acc != null ? `, com precisão de ± ${fmtDist(ev.venue_acc)}` : ""}.`;
+}
+function registerVenue(ev) {
+  const btn = document.getElementById("venueHere");
+  if (!navigator.geolocation) return toast("Este navegador não informa a localização.", true);
+  btn.disabled = true; btn.textContent = "Pegando a localização…";
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const acc = pos.coords.accuracy;
+    const { error } = await sb.rpc("set_venue_location", { p_event: ev.id, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude, p_accuracy: acc });
+    btn.disabled = false; btn.textContent = "📍 Registrar o local da festa aqui";
+    if (error) return toast(esc(errMsg(error)), true);
+    Object.assign(ev, { venue_lat: pos.coords.latitude, venue_lng: pos.coords.longitude, venue_acc: acc, venue_set_at: new Date().toISOString() });
+    document.getElementById("venueInfo").textContent = venueText(ev);
+    if (acc > 150) toast(`Registrado, mas o sinal está fraco (± ${fmtDist(acc)}). Vá para um lugar mais aberto e toque de novo.`, true);
+    else toast(`Local da festa registrado (± ${fmtDist(acc)}). O coração já está liberado.`);
+  }, err => {
+    btn.disabled = false; btn.textContent = "📍 Registrar o local da festa aqui";
+    toast(err.code === 1 ? "Libere a localização para este site no navegador e tente de novo." : "Não conseguimos a localização. Tente de novo num lugar mais aberto.", true);
+  }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
 }
 
 /* ---------- Pareamento do tablet ---------- */

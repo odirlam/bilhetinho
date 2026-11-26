@@ -80,7 +80,7 @@ details summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)
 <div id="root"><div class="center"><div class="spinner" aria-label="Carregando"></div></div></div>
 
 <script type="module">
-import { sb, configured, ensureSession, esc, brl, money, pixSplit, ago, fmtDay, MODE_NAME, STATUS_TXT, errMsg, qrDataUrl,
+import { sb, configured, ensureSession, esc, brl, money, pixSplit, ago, fmtDay, fmtDist, MODE_NAME, STATUS_TXT, errMsg, qrDataUrl,
          toast, store, notConfigured, sortQueue } from "/assets/common.js";
 
 const root = document.getElementById("root");
@@ -229,11 +229,18 @@ function setVenue(manual) {
   if (!navigator.geolocation) { venueMsg = "Este navegador não informa a localização: o coração da plateia fica desligado."; return renderStage(); }
   venueMsg = "Registrando o local da festa…"; renderStage();
   navigator.geolocation.getCurrentPosition(async pos => {
-    const { error } = await sb.rpc("set_venue_location", { p_event: ev.id, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude });
+    const acc = pos.coords.accuracy;
+    // Automático: não troca um local preciso, registrado há pouco, por um pior.
+    if (!manual && ev.venue_lat != null && ev.venue_acc != null && acc > ev.venue_acc
+        && Date.now() - new Date(ev.venue_set_at) < 12 * 3600e3) { venueMsg = ""; return renderStage(); }
+    const { error } = await sb.rpc("set_venue_location", { p_event: ev.id, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude, p_accuracy: acc });
     if (error) { venueMsg = errMsg(error); return renderStage(); }
-    ev.venue_lat = pos.coords.latitude; ev.venue_lng = pos.coords.longitude; ev.venue_set_at = new Date().toISOString();
-    venueMsg = ""; renderStage();
-    if (manual) toast("Local da festa atualizado. O coração usa este ponto.");
+    ev.venue_lat = pos.coords.latitude; ev.venue_lng = pos.coords.longitude; ev.venue_acc = acc; ev.venue_set_at = new Date().toISOString();
+    venueMsg = acc > 150
+      ? `A localização deste aparelho está imprecisa (± ${fmtDist(acc)}), e o coração pode barrar quem está na festa. Registre o local pelo celular da banda: área da banda → o evento → "Registrar o local da festa aqui".`
+      : "";
+    renderStage();
+    if (manual && acc <= 150) toast(`Local da festa atualizado (± ${fmtDist(acc)}).`);
   }, err => {
     venueMsg = err.code === 1 ? "Libere a localização deste tablet para ligar o coração da plateia." : "Não conseguimos a localização do tablet. Tente de novo.";
     renderStage();
@@ -257,7 +264,7 @@ function heartPanel() {
   return `<div class="rules-panel" style="border-color:rgba(255,59,92,.7)">
     <div><h3>❤ Coração da plateia</h3>
       <p class="lead" style="margin:0">${h.stats.perfis} pessoas no coração · ${h.stats.matches} matches nesta festa</p></div>
-    <div class="foot"><small>${venueOk ? `Local da festa registrado ${venueAgo()}. Só entra quem está perto daqui.` : "O local da festa ainda não foi registrado: o coração está desligado."}</small>
+    <div class="foot"><small>${venueOk ? `Local da festa registrado ${venueAgo()}${ev.venue_acc != null ? ` (± ${fmtDist(ev.venue_acc)})` : ""}. Só entra quem está perto daqui.` : "O local da festa ainda não foi registrado: o coração está desligado."}</small>
       <button type="button" class="btn" id="venueBtn">${venueOk ? "Atualizar local" : "Registrar local"}</button></div>
     <div><b>Denúncias</b>
       ${h.reports.length ? h.reports.map(r => `<div class="report-row">

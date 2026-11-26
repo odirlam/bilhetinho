@@ -1,6 +1,6 @@
 // Bilhetinho · Coração (fase 2): conhecer quem está na festa.
 // Regras no banco: supabase/002_coracao.sql
-import { sb, esc, errMsg, toast, norm, CATALOG } from "/assets/common.js";
+import { sb, esc, errMsg, toast, norm, CATALOG, fmtDist } from "/assets/common.js";
 
 const BUCKET = "heart-photos";
 // Mensagens prontas (a lista do banco está em supabase/003_mensagens.sql).
@@ -219,7 +219,12 @@ export function createHeart({ getEv, me, getBody, isOpen, setBadge, getName, get
       render();
     } catch (e) {
       const m = String(e.message || e);
-      if (m.includes("longe_da_festa")) { coords = null; renderIntro("Parece que você não está no local da festa. Se estiver, vá para um lugar mais aberto e tente de novo."); return; }
+      if (m.includes("longe_da_festa")) {
+        const dist = +(m.match(/longe_da_festa:(\d+)/) || [])[1];
+        coords = null;
+        renderIntro(`${dist ? `Você parece estar a <b>${fmtDist(dist)}</b> do local registrado da festa.` : "Parece que você não está no local da festa."} Se você está na festa, vá para um lugar mais aberto e tente de novo. Se continuar, avise a banda: ela pode registrar o local de novo pelo celular.`);
+        return;
+      }
       toast(esc(errMsg(e)), true);
       btn.disabled = false; btn.textContent = "Pronto, quero conhecer gente";
     }

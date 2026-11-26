@@ -31,6 +31,8 @@ export const pixSplit = (tip, ff) => ff
   : { paga: tip * (1 + SERVICE_FEE), banda: tip };
 export const ago = t => { const m = Math.round((Date.now() - new Date(t)) / 60000); return m < 1 ? "agora" : m < 60 ? "há " + m + " min" : "há " + Math.floor(m / 60) + " h"; };
 export const fmtDay = d => new Date(d).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+// 850 -> "850 m"; 2300 -> "2,3 km"
+export const fmtDist = m => m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;
 export const fmtTime = d => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 export const MODE_NAME = { destaque: "Pix só destaca", prioridade: "Pix dá prioridade", furafila: "Fura-fila" };
